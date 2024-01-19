@@ -109,7 +109,7 @@ export class YandexService {
 
 		const headers = {
 			'Content-Type': 'application/json',
-			Authorization: `Bearer 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`,
+			Authorization: `Bearer ${process.env.API_KEY_CHATGPT}`,
 		}
 
 		const httpsProxyUrl = 'http://aJYRJwCem:tJgZ2r8Ps@46.3.5.83:63410'
