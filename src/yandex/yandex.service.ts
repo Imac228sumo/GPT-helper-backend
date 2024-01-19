@@ -52,23 +52,27 @@ export class YandexService {
 
 		const headers = {
 			'Content-Type': 'application/json',
-			Authorization: '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',
+			Authorization:
+				'Bearer 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',
 		}
 
 		const modifiedDto = {
 			model: 'gpt-3.5-turbo',
 			messages: [
 				{
-					role: 'system',
-					content:
-						'You are a poetic assistant, skilled in explaining complex programming concepts with creative flair.',
+					role: 'user',
+					content: 'Say this is a test!',
+				},
+				{
+					role: 'assistant',
+					content: 'This is a test!',
 				},
 				{
 					role: 'user',
-					content:
-						'Compose a poem that explains the concept of recursion in programming.',
+					content: 'Hello! How are you?',
 				},
 			],
+			temperature: 0.7,
 		}
 
 		const { data } = await firstValueFrom(
