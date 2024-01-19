@@ -13,35 +13,39 @@ export class YandexService {
 	) {}
 
 	async generateResponseSync(dto: YandexDto) {
-		const { url, apiKey, modelUri, completionOptions } =
-			await this.prisma.yandexAPI.findUnique({
-				where: { name: 'generateResponseSync' },
-				include: {
-					completionOptions: true,
-				},
-			})
+		const yandexApiParams = await this.prisma.yandexAPI.findUnique({
+			where: { name: 'generateResponseSync' },
+			include: {
+				completionOptions: true,
+			},
+		})
+
+		if (!yandexApiParams)
+			throw new BadGatewayException('Problems with Yandex API')
 
 		const headers = {
 			'Content-Type': 'application/json',
-			Authorization: apiKey,
+			Authorization: yandexApiParams.apiKey,
 		}
 
 		const modifiedDto = {
 			...dto,
-			modelUri: modelUri,
+			modelUri: yandexApiParams.modelUri,
 			completionOptions: {
-				stream: completionOptions.stream,
-				temperature: completionOptions.temperature,
-				maxTokens: completionOptions.maxTokens,
+				stream: yandexApiParams.completionOptions.stream,
+				temperature: yandexApiParams.completionOptions.temperature,
+				maxTokens: yandexApiParams.completionOptions.maxTokens,
 			},
 		}
 
 		const { data } = await firstValueFrom(
-			this.httpService.post<any>(url, modifiedDto, { headers }).pipe(
-				catchError((error: AxiosError) => {
-					throw new BadGatewayException('Problems with Yandex API', error)
-				})
-			)
+			this.httpService
+				.post<any>(yandexApiParams.url, modifiedDto, { headers })
+				.pipe(
+					catchError((error: AxiosError) => {
+						throw new BadGatewayException('Problems with Yandex API', error)
+					})
+				)
 		)
 
 		return data
@@ -52,8 +56,7 @@ export class YandexService {
 
 		const headers = {
 			'Content-Type': 'application/json',
-			Authorization:
-				'Bearer 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',
+			Authorization: `Bearer ${process.env.API_KEY_CHATGPT}`,
 		}
 
 		const modifiedDto = {
@@ -78,7 +81,7 @@ export class YandexService {
 		const { data } = await firstValueFrom(
 			this.httpService.post<any>(url, modifiedDto, { headers }).pipe(
 				catchError((error: AxiosError) => {
-					throw new BadGatewayException('Problems with OpenAI API', error)
+					throw new BadGatewayException(error)
 				})
 			)
 		)
