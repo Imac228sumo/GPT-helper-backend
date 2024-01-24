@@ -97,8 +97,8 @@ export class AuthService {
 
 		res.cookie(this.REFRESH_TOKEN_NAME, refreshToken, {
 			httpOnly: true,
-			domain: process.env.DOMAIN || 'localhost',
-			path: '/',
+			// domain: process.env.DOMAIN || 'localhost',
+			// path: '/',
 			expires: expiresIn,
 			// true if production
 			secure: process.env.NODE_ENV === 'production',
@@ -110,8 +110,8 @@ export class AuthService {
 	removeRefreshTokenFromResponse(res: Response) {
 		res.cookie(this.REFRESH_TOKEN_NAME, '', {
 			httpOnly: true,
-			domain: process.env.DOMAIN || 'localhost',
-			path: '/',
+			// domain: process.env.DOMAIN || 'localhost',
+			// path: '/',
 			expires: new Date(0),
 			// true if production
 			secure: process.env.NODE_ENV === 'production',
