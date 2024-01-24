@@ -9,7 +9,6 @@ import { JwtService } from '@nestjs/jwt'
 import { verify } from 'argon2'
 import { Response } from 'express'
 import { UserService } from 'src/user/user.service'
-import { ITokenUserData } from './auth.interface'
 import { AuthDto } from './dto/auth.dto'
 import { RefreshTokenDto } from './dto/refresh-token.dto'
 
@@ -25,7 +24,7 @@ export class AuthService {
 
 	async login(dto: AuthDto) {
 		const { password, ...user } = await this.validateUser(dto)
-		const tokens = await this.issueTokens(user)
+		const tokens = await this.issueTokens(user.id)
 
 		return {
 			user,
@@ -43,7 +42,7 @@ export class AuthService {
 
 		const { password, ...user } = await this.userService.createUser(dto)
 
-		const tokens = await this.issueTokens(user)
+		const tokens = await this.issueTokens(user.id)
 
 		return {
 			user,
@@ -58,7 +57,7 @@ export class AuthService {
 
 		const { password, ...user } = await this.userService.getUserById(result.id)
 
-		const tokens = await this.issueTokens(user)
+		const tokens = await this.issueTokens(user.id)
 
 		return {
 			user,
@@ -66,14 +65,14 @@ export class AuthService {
 		}
 	}
 
-	private async issueTokens(user: ITokenUserData) {
-		const data = user
+	private async issueTokens(userId: number) {
+		const data = { id: userId }
 
-		const accessToken = await this.jwtService.signAsync(data, {
+		const accessToken = this.jwtService.sign(data, {
 			expiresIn: '1h',
 		})
 
-		const refreshToken = await this.jwtService.signAsync(data, {
+		const refreshToken = this.jwtService.sign(data, {
 			expiresIn: '30d',
 		})
 
