@@ -100,6 +100,7 @@ export class AuthService {
 			// domain: process.env.DOMAIN || 'localhost',
 			// path: '/',
 			expires: expiresIn,
+			maxAge: 60 * 60 * 24 * 7,
 			// true if production
 			secure: process.env.NODE_ENV === 'production',
 			// lax if production
@@ -113,6 +114,7 @@ export class AuthService {
 			// domain: process.env.DOMAIN || 'localhost',
 			// path: '/',
 			expires: new Date(0),
+			maxAge: 0,
 			// true if production
 			secure: process.env.NODE_ENV === 'production',
 			// lax if production
