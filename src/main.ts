@@ -23,10 +23,7 @@ async function bootstrap() {
 	app.enableCors({
 		exposedHeaders: 'set-cookie',
 		credentials: true,
-		origin: [
-			'http://localhost:3000',
-			'https://gpt-helper-frontend-production.up.railway.app',
-		],
+		origin: ['http://localhost:3000', process.env.ORIGIN],
 	})
 
 	await app.listen(process.env.PORT || 4200)
