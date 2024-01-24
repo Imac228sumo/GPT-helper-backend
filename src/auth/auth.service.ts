@@ -14,7 +14,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto'
 
 @Injectable()
 export class AuthService {
-	EXPIRE_DAY_REFRESH_TOKEN = 1
+	EXPIRE_DAY_REFRESH_TOKEN = 30 * 60 * 60 * 1000
 	REFRESH_TOKEN_NAME = 'refreshToken'
 
 	constructor(
