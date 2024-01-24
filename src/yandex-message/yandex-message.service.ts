@@ -4,14 +4,14 @@ import {
 	NotFoundException,
 } from '@nestjs/common'
 import { PrismaService } from 'src/prisma.service'
-import { CreateMessageDto } from './dto/create-message.dto'
+import { CreateYandexMessageDto } from './dto/create-yandex-message.dto'
 
 @Injectable()
-export class MessageService {
+export class YandexMessageService {
 	constructor(private prisma: PrismaService) {}
 
-	async createMessage(dto: CreateMessageDto) {
-		const message = await this.prisma.message.create({
+	async createMessage(dto: CreateYandexMessageDto) {
+		const message = await this.prisma.yandexMessage.create({
 			data: {
 				chat: {
 					connect: {
@@ -35,7 +35,7 @@ export class MessageService {
 		})
 		if (!user) throw new NotFoundException('User not found')
 
-		const messages = await this.prisma.message.findMany({
+		const messages = await this.prisma.yandexMessage.findMany({
 			where: {
 				chatId: chatId,
 			},
@@ -60,7 +60,7 @@ export class MessageService {
 		})
 		if (!user) throw new NotFoundException('User not found')
 
-		const messages = await this.prisma.message.deleteMany({
+		const messages = await this.prisma.yandexMessage.deleteMany({
 			where: {
 				chatId: chatId,
 			},

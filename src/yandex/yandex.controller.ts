@@ -1,7 +1,9 @@
 import {
 	Body,
 	Controller,
+	Get,
 	HttpCode,
+	Param,
 	Post,
 	UsePipes,
 	ValidationPipe,
@@ -15,22 +17,21 @@ export class YandexController {
 
 	@UsePipes(new ValidationPipe())
 	@HttpCode(200)
-	@Post('generateResponseSync')
-	generateResponseSync(@Body() dto: YandexDto) {
-		return this.yandexService.generateResponseSync(dto)
-	}
-
-	@HttpCode(200)
-	@Post('generateResponseSyncChat')
-	generateResponseSyncChat() {
-		return this.yandexService.generateResponseSyncChat()
+	@Post('generateResponse')
+	async generateResponse(@Body() dto: YandexDto) {
+		return this.yandexService.generateResponse(dto)
 	}
 
 	// Admin section
 	@UsePipes(new ValidationPipe())
 	@HttpCode(200)
-	@Post('createOrUpdateYandexApi')
-	createOrUpdateYandexApi(@Body() dto: YandexApiDto) {
-		return this.yandexService.createOrUpdateYandexApi(dto)
+	@Post('createOrUpdateYandexApiParams')
+	async createOrUpdateYandexApiParams(@Body() dto: YandexApiDto) {
+		return this.yandexService.createOrUpdateYandexApiParams(dto)
+	}
+
+	@Get('getYandexApiParams/:id')
+	async getYandexApiParams(@Param('id') id: string) {
+		return this.yandexService.getYandexApiParams(+id)
 	}
 }

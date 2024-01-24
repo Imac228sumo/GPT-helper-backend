@@ -11,17 +11,17 @@ import {
 } from '@nestjs/common'
 import { Auth } from 'src/auth/decorators/auth.decorator'
 import { CurrentUser } from 'src/user/decorators/user.decorator'
-import { ChatService } from './chat.service'
 import { SendMessageDto } from './dto/update-chat.dto'
+import { YandexChatService } from './yandex-chat.service'
 
-@Controller('chats')
-export class ChatController {
-	constructor(private readonly chatService: ChatService) {}
+@Controller('yandex-chats')
+export class YandexChatController {
+	constructor(private readonly yandexChatService: YandexChatService) {}
 
 	@Auth()
 	@Get('create-chat')
 	async createChat(@CurrentUser('id') userId: number) {
-		return this.chatService.createChat(userId)
+		return this.yandexChatService.createChat(userId)
 	}
 
 	@Auth()
@@ -30,7 +30,7 @@ export class ChatController {
 		@Param('chatId') chatId: string,
 		@CurrentUser('id') userId: number
 	) {
-		return this.chatService.getChat(+chatId, userId)
+		return this.yandexChatService.getChat(+chatId, userId)
 	}
 
 	@Auth()
@@ -42,7 +42,7 @@ export class ChatController {
 		@CurrentUser('id') userId: number,
 		@Body() dto: SendMessageDto
 	) {
-		return this.chatService.sendMessage(+chatId, userId, dto)
+		return this.yandexChatService.sendMessage(+chatId, userId, dto)
 	}
 
 	@Auth()
@@ -52,6 +52,6 @@ export class ChatController {
 		@Param('chatId') chatId: string,
 		@CurrentUser('id') userId: number
 	) {
-		return this.chatService.deleteChat(+chatId, userId)
+		return this.yandexChatService.deleteChat(+chatId, userId)
 	}
 }

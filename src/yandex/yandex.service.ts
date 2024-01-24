@@ -1,7 +1,10 @@
 import { HttpService } from '@nestjs/axios'
-import { BadGatewayException, Injectable } from '@nestjs/common'
-import axios, { AxiosError } from 'axios'
-import { HttpsProxyAgent } from 'https-proxy-agent'
+import {
+	BadGatewayException,
+	Injectable,
+	NotFoundException,
+} from '@nestjs/common'
+import { AxiosError } from 'axios'
 import { catchError, firstValueFrom } from 'rxjs'
 import { PrismaService } from 'src/prisma.service'
 import { YandexApiDto, YandexDto } from './dto/create-yandex.dto'
@@ -13,7 +16,7 @@ export class YandexService {
 		private prisma: PrismaService
 	) {}
 
-	async generateResponseSync(dto: YandexDto) {
+	async generateResponse(dto: YandexDto) {
 		const yandexApiParams = await this.prisma.yandexAPI.findUnique({
 			where: { name: 'generateResponseSync' },
 			include: {
@@ -52,90 +55,24 @@ export class YandexService {
 		return data
 	}
 
-	async generateResponseSyncChat() {
-		// const url = 'https://api.openai.com/v1/chat/completions'
-		// const data = {
-		// 	model: 'gpt-3.5-turbo',
-		// 	messages: [
-		// 		{
-		// 			role: 'user',
-		// 			content: 'Say this is a test!',
-		// 		},
-		// 		{
-		// 			role: 'assistant',
-		// 			content: 'This is a test!',
-		// 		},
-		// 		{
-		// 			role: 'user',
-		// 			content: 'Hello! How are you?',
-		// 		},
-		// 	],
-		// 	temperature: 0.7,
-		// }
-
-		// const proxyUrl = 'http://nBM1a2:TLx66Y@185.88.98.71:8000'
-
-		// const proxyAgent = axios.create({
-		// 	httpAgent: new HttpsProxyAgent(proxyUrl),
-		// })
-
-		// try {
-		// 	const response = await proxyAgent.post(url, data, { headers })
-		// 	//console.log('response:', response.data)
-		// 	return response.data
-		// } catch (error) {
-		// 	//console.error('error while making axios POST request with proxy', error)
-		// 	throw error
-		// }
-
-		const data = {
-			model: 'gpt-3.5-turbo',
-			messages: [
-				{
-					role: 'user',
-					content: 'Say this is a test!',
-				},
-				{
-					role: 'assistant',
-					content: 'This is a test!',
-				},
-				{
-					role: 'user',
-					content: 'Hello! How are you?',
-				},
-			],
-			temperature: 0.7,
-		}
-
-		const headers = {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${process.env.API_KEY_CHATGPT}`,
-		}
-
-		const httpsProxyUrl = 'http://aJYRJwCem:tJgZ2r8Ps@46.3.5.83:63410'
-
-		const httpsProxyAgent = axios.create({
-			httpsAgent: new HttpsProxyAgent(httpsProxyUrl),
-		})
-
-		try {
-			const response = await httpsProxyAgent.post(
-				'https://api.openai.com/v1/chat/completions',
-				data,
-				{ headers }
-			)
-			//console.log('response:', response.data)
-			return response.data
-		} catch (error) {
-			//console.error('error while making axios POST request with proxy', error)
-			throw error
-		}
-	}
-	//https://nBM1a2:TLx66Y@185.88.98.71:8000 - proxy
-
 	// Admin section
 
-	async createOrUpdateYandexApi(dto: YandexApiDto) {
+	async getYandexApiParams(id: number) {
+		const yandexApi = await this.prisma.yandexAPI.findUnique({
+			where: {
+				id: id,
+			},
+			include: {
+				completionOptions: true,
+			},
+		})
+
+		if (!yandexApi) throw new NotFoundException('Yandex API  params not found')
+
+		return yandexApi
+	}
+
+	async createOrUpdateYandexApiParams(dto: YandexApiDto) {
 		const yandexApi = await this.prisma.yandexAPI.upsert({
 			where: { name: dto.name },
 			update: {

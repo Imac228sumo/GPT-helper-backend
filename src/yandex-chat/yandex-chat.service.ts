@@ -4,17 +4,17 @@ import {
 	InternalServerErrorException,
 	NotFoundException,
 } from '@nestjs/common'
-import { MessageService } from 'src/message/message.service'
 import { PrismaService } from 'src/prisma.service'
+import { YandexMessageService } from 'src/yandex-message/yandex-message.service'
 import { YandexService } from 'src/yandex/yandex.service'
 import { ResponseYandexDto } from './dto/response-yandex.dto'
 import { SendMessageDto, UpdateChatDto } from './dto/update-chat.dto'
 
 @Injectable()
-export class ChatService {
+export class YandexChatService {
 	constructor(
 		private prisma: PrismaService,
-		private messageService: MessageService,
+		private yandexMessageService: YandexMessageService,
 		private yandexService: YandexService
 	) {}
 
@@ -26,7 +26,7 @@ export class ChatService {
 		})
 		if (!user) throw new NotFoundException('User not found')
 
-		const countChat = await this.prisma.chat.findMany({
+		const countChat = await this.prisma.yandexChat.findMany({
 			where: {
 				userId: userId,
 			},
@@ -35,7 +35,7 @@ export class ChatService {
 		if (countChat.length > 5)
 			throw new ForbiddenException('The chat limit has been exceeded')
 
-		const chat = await this.prisma.chat.create({
+		const chat = await this.prisma.yandexChat.create({
 			data: {
 				user: {
 					connect: {
@@ -51,7 +51,7 @@ export class ChatService {
 			text: 'Ты ассистент дроид, способный помочь в галактических приключениях.',
 		}
 
-		await this.messageService.createMessage(modifiedDto)
+		await this.yandexMessageService.createMessage(modifiedDto)
 
 		if (!chat) throw new InternalServerErrorException('failed to create a chat')
 
@@ -66,7 +66,7 @@ export class ChatService {
 		})
 		if (!user) throw new NotFoundException('User not found')
 
-		const chat = await this.prisma.chat.findUnique({
+		const chat = await this.prisma.yandexChat.findUnique({
 			where: {
 				id: chatId,
 			},
@@ -95,9 +95,9 @@ export class ChatService {
 			text: dto.text,
 		}
 
-		await this.messageService.createMessage(modifiedDto)
+		await this.yandexMessageService.createMessage(modifiedDto)
 
-		const chat = await this.prisma.chat.findUnique({
+		const chat = await this.prisma.yandexChat.findUnique({
 			where: {
 				id: id,
 			},
@@ -121,7 +121,7 @@ export class ChatService {
 
 		if (!user) throw new NotFoundException('User not found')
 
-		const chat = await this.prisma.chat.findUnique({
+		const chat = await this.prisma.yandexChat.findUnique({
 			where: {
 				id: chatId,
 			},
@@ -134,12 +134,15 @@ export class ChatService {
 			role: 'user',
 			text: dto.message,
 		}
-		await this.messageService.createMessage(createMessageDto)
+		await this.yandexMessageService.createMessage(createMessageDto)
 
-		const messages = await this.messageService.findAllMessages(chatId, userId)
+		const messages = await this.yandexMessageService.findAllMessages(
+			chatId,
+			userId
+		)
 
 		const response: ResponseYandexDto =
-			await this.yandexService.generateResponseSync({ messages })
+			await this.yandexService.generateResponse({ messages })
 		const aiResponse = response.result.alternatives[0].message
 
 		const updateChatDtoAi = {
@@ -160,9 +163,9 @@ export class ChatService {
 
 		if (!user) throw new NotFoundException('User not found')
 
-		await this.messageService.deleteAllMessages(chatId, userId)
+		await this.yandexMessageService.deleteAllMessages(chatId, userId)
 
-		const chat = await this.prisma.chat.delete({
+		const chat = await this.prisma.yandexChat.delete({
 			where: {
 				id: chatId,
 			},

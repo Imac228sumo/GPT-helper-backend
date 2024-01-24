@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsNumber, IsString } from 'class-validator'
 
-export class CreateMessageDto {
+export class CreateOpenaiMessageDto {
 	@IsNotEmpty()
 	@IsNumber()
 	chatId: number
@@ -9,5 +9,7 @@ export class CreateMessageDto {
 	role: string
 	@IsNotEmpty()
 	@IsString()
-	text: string
+	content: string
+	@IsString()
+	name?: string
 }

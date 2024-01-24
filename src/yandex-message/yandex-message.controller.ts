@@ -9,18 +9,18 @@ import {
 } from '@nestjs/common'
 import { Auth } from 'src/auth/decorators/auth.decorator'
 import { CurrentUser } from 'src/user/decorators/user.decorator'
-import { CreateMessageDto } from './dto/create-message.dto'
-import { MessageService } from './message.service'
+import { CreateYandexMessageDto } from './dto/create-yandex-message.dto'
+import { YandexMessageService } from './yandex-message.service'
 
-@Controller('messages')
-export class MessageController {
-	constructor(private readonly messageService: MessageService) {}
+@Controller('yandex-message')
+export class YandexMessageController {
+	constructor(private readonly yandexMessageService: YandexMessageService) {}
 
 	@Post('create-message')
 	@Auth()
 	@HttpCode(200)
-	async createMessage(@Body() dto: CreateMessageDto) {
-		return this.messageService.createMessage(dto)
+	async createMessage(@Body() dto: CreateYandexMessageDto) {
+		return this.yandexMessageService.createMessage(dto)
 	}
 
 	@Get(':chatId')
@@ -29,7 +29,7 @@ export class MessageController {
 		@Param('chatId') chatId: string,
 		@CurrentUser('id') userId: number
 	) {
-		return this.messageService.findAllMessages(+chatId, userId)
+		return this.yandexMessageService.findAllMessages(+chatId, userId)
 	}
 
 	@Delete(':chatId')
@@ -39,6 +39,6 @@ export class MessageController {
 		@Param('chatId') chatId: string,
 		@CurrentUser('id') userId: number
 	) {
-		return this.messageService.deleteAllMessages(+chatId, userId)
+		return this.yandexMessageService.deleteAllMessages(+chatId, userId)
 	}
 }

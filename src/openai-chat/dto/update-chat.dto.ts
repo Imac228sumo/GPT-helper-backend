@@ -1,11 +1,11 @@
 import { IntersectionType, OmitType } from '@nestjs/mapped-types'
 import { IsNotEmpty, IsString } from 'class-validator'
-import { CreateMessageDto } from 'src/message/dto/create-message.dto'
+import { CreateOpenaiMessageDto } from 'src/openai-message/dto/create-openai-message.dto'
 import { CreateChatDto } from './create-chat.dto'
 
 export class UpdateChatDto extends IntersectionType(
 	CreateChatDto,
-	OmitType(CreateMessageDto, ['chatId'] as const)
+	OmitType(CreateOpenaiMessageDto, ['chatId'] as const)
 ) {}
 
 export class SendMessageDto {
