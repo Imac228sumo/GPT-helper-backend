@@ -74,7 +74,7 @@ export class AuthService {
 		})
 
 		const refreshToken = await this.jwtService.signAsync(data, {
-			expiresIn: '7d',
+			expiresIn: '30d',
 		})
 
 		return { accessToken, refreshToken }
@@ -103,19 +103,19 @@ export class AuthService {
 			// true if production
 			secure: true,
 			// lax if production
-			sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'none',
+			sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'none',
 		})
 	}
 
 	removeRefreshTokenFromResponse(res: Response) {
-		// res.cookie(this.REFRESH_TOKEN_NAME, '', {
-		// 	httpOnly: true,
-		// 	domain: process.env.DOMAIN,
-		// 	expires: new Date(0),
-		// 	// true if production
-		// 	secure: true,
-		// 	// lax if production
-		// 	sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'none',
-		// })
+		res.cookie(this.REFRESH_TOKEN_NAME, '', {
+			httpOnly: true,
+			domain: process.env.DOMAIN,
+			expires: new Date(0),
+			// true if production
+			secure: true,
+			// lax if production
+			sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'none',
+		})
 	}
 }
