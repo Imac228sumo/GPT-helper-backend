@@ -14,7 +14,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto'
 
 @Injectable()
 export class AuthService {
-	EXPIRE_DAY_REFRESH_TOKEN = 30 * 60 * 60 * 1000
+	EXPIRE_DAY_REFRESH_TOKEN = 1
 	REFRESH_TOKEN_NAME = 'refreshToken'
 
 	constructor(
@@ -73,7 +73,7 @@ export class AuthService {
 		})
 
 		const refreshToken = this.jwtService.sign(data, {
-			expiresIn: '30d',
+			expiresIn: '1d',
 		})
 
 		return { accessToken, refreshToken }
