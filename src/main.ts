@@ -25,7 +25,7 @@ async function bootstrap() {
 		credentials: true,
 		origin: [
 			'http://localhost:3000',
-			'https://shop-next-client-production.up.railway.app',
+			'https://gpt-helper-frontend-production.up.railway.app',
 		],
 	})
 
