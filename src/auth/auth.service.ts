@@ -103,7 +103,7 @@ export class AuthService {
 			// true if production
 			secure: true,
 			// lax if production
-			sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+			sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'none',
 		})
 	}
 
@@ -115,7 +115,7 @@ export class AuthService {
 			// true if production
 			secure: true,
 			// lax if production
-			sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+			sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'none',
 		})
 	}
 }
