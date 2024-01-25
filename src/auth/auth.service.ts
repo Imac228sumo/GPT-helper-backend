@@ -101,13 +101,11 @@ export class AuthService {
 				process.env.NODE_ENV === 'production'
 					? process.env.DOMAIN
 					: 'localhost',
-			path: '/',
 			expires: expiresIn,
-			maxAge: 60 * 60 * 24 * 7,
 			// true if production
 			secure: process.env.NODE_ENV === 'production' ? true : false,
 			// lax if production
-			sameSite: process.env.NODE_ENV === 'production' ? 'none' : true,
+			sameSite: process.env.NODE_ENV === 'production' ? 'lax' : true,
 		})
 	}
 
@@ -118,13 +116,11 @@ export class AuthService {
 				process.env.NODE_ENV === 'production'
 					? process.env.DOMAIN
 					: 'localhost',
-			path: '/',
 			expires: new Date(0),
-			maxAge: 0,
 			// true if production
 			secure: process.env.NODE_ENV === 'production' ? true : false,
 			// lax if production
-			sameSite: process.env.NODE_ENV === 'production' ? 'none' : true,
+			sameSite: process.env.NODE_ENV === 'production' ? 'lax' : true,
 		})
 	}
 }

@@ -22,19 +22,7 @@ export class AuthController {
 	@Post('login')
 	async login(@Body() dto: AuthDto, @Res({ passthrough: true }) res: Response) {
 		const { refreshToken, ...response } = await this.authService.login(dto)
-
-		// this.authService.addRefreshTokenToResponse(res, refreshToken)
-		const expiresIn = new Date()
-		expiresIn.setDate(expiresIn.getDate() + 1)
-
-		res.cookie('refreshToken', refreshToken, {
-			httpOnly: true,
-			path: '/',
-			expires: expiresIn,
-			secure: process.env.NODE_ENV === 'production' ? true : false,
-			sameSite: process.env.NODE_ENV === 'production' ? 'lax' : true,
-		})
-
+		this.authService.addRefreshTokenToResponse(res, refreshToken)
 		return response
 	}
 
