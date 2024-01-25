@@ -105,9 +105,9 @@ export class AuthService {
 			expires: expiresIn,
 			maxAge: 60 * 60 * 24 * 7,
 			// true if production
-			secure: process.env.NODE_ENV === 'production',
+			secure: process.env.NODE_ENV === 'production' ? true : false,
 			// lax if production
-			sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+			sameSite: process.env.NODE_ENV === 'production' ? 'none' : true,
 		})
 	}
 
@@ -122,9 +122,9 @@ export class AuthService {
 			expires: new Date(0),
 			maxAge: 0,
 			// true if production
-			secure: process.env.NODE_ENV === 'production',
+			secure: process.env.NODE_ENV === 'production' ? true : false,
 			// lax if production
-			sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+			sameSite: process.env.NODE_ENV === 'production' ? 'none' : true,
 		})
 	}
 }
