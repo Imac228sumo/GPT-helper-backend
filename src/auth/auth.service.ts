@@ -99,7 +99,7 @@ export class AuthService {
 			httpOnly: true,
 			domain:
 				process.env.NODE_ENV === 'production'
-					? `.${process.env.DOMAIN}`
+					? process.env.DOMAIN
 					: 'localhost',
 			path: '/',
 			expires: expiresIn,
@@ -116,7 +116,7 @@ export class AuthService {
 			httpOnly: true,
 			domain:
 				process.env.NODE_ENV === 'production'
-					? `.${process.env.DOMAIN}`
+					? process.env.DOMAIN
 					: 'localhost',
 			path: '/',
 			expires: new Date(0),
