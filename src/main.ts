@@ -17,7 +17,6 @@ async function bootstrap() {
 	// )
 	// app.use(passport.initialize())
 	// app.use(passport.session())
-	app.use('trust proxy', 1)
 	app.use(cookieParser())
 
 	app.enableCors({
