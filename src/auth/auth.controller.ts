@@ -32,7 +32,7 @@ export class AuthController {
 			path: '/',
 			expires: expiresIn,
 			secure: process.env.NODE_ENV === 'production' ? true : false,
-			sameSite: process.env.NODE_ENV === 'production' ? 'none' : true,
+			sameSite: process.env.NODE_ENV === 'production' ? 'lax' : true,
 		})
 
 		return response
