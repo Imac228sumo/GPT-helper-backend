@@ -29,7 +29,7 @@ export class AuthController {
 
 		res.cookie('refToken', refreshToken, {
 			httpOnly: true,
-			domain: process.env.NODE_ENV === 'production' ? 'localhost' : 'localhost',
+			// domain: process.env.NODE_ENV === 'production' ? 'localhost' : 'localhost',
 			path: '/',
 			expires: expiresIn,
 			// maxAge: 60 * 60 * 24 * 7,
