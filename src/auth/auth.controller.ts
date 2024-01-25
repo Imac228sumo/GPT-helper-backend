@@ -23,7 +23,24 @@ export class AuthController {
 	async login(@Body() dto: AuthDto, @Res({ passthrough: true }) res: Response) {
 		const { refreshToken, ...response } = await this.authService.login(dto)
 
-		this.authService.addRefreshTokenToResponse(res, refreshToken)
+		// this.authService.addRefreshTokenToResponse(res, refreshToken)
+		const expiresIn = new Date()
+		expiresIn.setDate(expiresIn.getDate() + 1)
+
+		res.cookie('refToken', refreshToken, {
+			httpOnly: true,
+			domain:
+				process.env.NODE_ENV === 'production'
+					? process.env.DOMAIN
+					: 'localhost',
+			path: '/',
+			expires: expiresIn,
+			// maxAge: 60 * 60 * 24 * 7,
+			// true if production
+			secure: process.env.NODE_ENV === 'production' ? true : false,
+			// lax if production
+			sameSite: process.env.NODE_ENV === 'production' ? 'none' : true,
+		})
 
 		return response
 	}
