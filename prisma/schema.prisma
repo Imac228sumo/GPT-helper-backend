@@ -146,8 +146,8 @@ model CompletionOptionsOpenAi {
   id              Int     @id @default(autoincrement())
   stream          Boolean
   temperature     Float
-  maxTokensInput  Int
-  maxTokensOutput Int
+  maxTokensInput  Int     @default(0)
+  maxTokensOutput Int     @default(0)
 
   openAiAPI   OpenAiAPI @relation(fields: [openAiApiId], references: [id])
   openAiApiId Int       @unique
