@@ -1,12 +1,15 @@
 import {
 	BadGatewayException,
+	BadRequestException,
 	Injectable,
 	NotFoundException,
 } from '@nestjs/common'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import OpenAI from 'openai'
+import { ModelType } from 'openai-gpt-token-counter'
 import { PrismaService } from 'src/prisma.service'
-import { OpenAiApiDto, OpenAiDto } from './dto/create-openai.dto'
+import { Message, OpenAiApiDto, OpenAiDto } from './dto/create-openai.dto'
+const openaiTokenCounter = require('openai-gpt-token-counter')
 
 @Injectable()
 export class OpenaiService {
@@ -14,7 +17,7 @@ export class OpenaiService {
 
 	async generateResponse(dto: OpenAiDto) {
 		const openAiApiParams = await this.prisma.openAiAPI.findUnique({
-			where: { name: 'gpt-3.5-turbo' },
+			where: { name: 'free' },
 			include: {
 				completionOptionsOpenAi: true,
 			},
@@ -32,18 +35,71 @@ export class OpenaiService {
 
 		const response = await openai.chat.completions.create({
 			model: openAiApiParams.model,
-			stream: openAiApiParams.completionOptionsOpenAi.stream,
+			stream: false,
 			messages: dto.messages,
 			temperature: openAiApiParams.completionOptionsOpenAi.temperature,
-			max_tokens: openAiApiParams.completionOptionsOpenAi.maxTokens,
+			max_tokens: openAiApiParams.completionOptionsOpenAi.maxTokensOutput,
 		})
 
 		return response
 	}
 
-	async generateResponseStream(dto: OpenAiDto) {
+	async generateResponseStream(
+		dto: OpenAiDto,
+		nameSubscription: string = 'none'
+	) {
+		//free/standard/unique/unlimited
+		if (nameSubscription === 'none') {
+			throw new BadGatewayException('Subscription ended')
+		}
 		const openAiApiParams = await this.prisma.openAiAPI.findUnique({
-			where: { name: 'gpt-3.5-turbo' },
+			where: { name: nameSubscription },
+			include: {
+				completionOptionsOpenAi: true,
+			},
+		})
+
+		if (!openAiApiParams)
+			throw new BadGatewayException('Problems with OpenAi API')
+
+		const httpProxyUrl = openAiApiParams.httpProxyUrl
+
+		const openai = new OpenAI({
+			apiKey: openAiApiParams.apiKey,
+			httpAgent: new HttpsProxyAgent(httpProxyUrl),
+		})
+		if (!openai) throw new BadGatewayException('Problems with OpenAi API')
+
+		const messagesTMP = [dto.messages.slice(-1)[0]] as Message[]
+		const tokenCount = openaiTokenCounter.chat(
+			messagesTMP,
+			openAiApiParams.model as ModelType
+		)
+		// console.log(messagesTMP)
+
+		if (tokenCount > openAiApiParams.completionOptionsOpenAi.maxTokensInput) {
+			throw new BadRequestException(
+				`Too many tokens: ${tokenCount}. The maximum number of tokens is ${openAiApiParams.completionOptionsOpenAi.maxTokensInput}`
+			)
+		}
+
+		try {
+			const stream = await openai.chat.completions.create({
+				model: openAiApiParams.model,
+				stream: true,
+				messages: dto.messages,
+				temperature: openAiApiParams.completionOptionsOpenAi.temperature,
+				max_tokens: openAiApiParams.completionOptionsOpenAi.maxTokensOutput,
+			})
+			return stream
+		} catch (error) {
+			throw new BadGatewayException('Problems with OpenAi API', error)
+		}
+	}
+
+	async generateResponseStreamUnauthorized(dto: OpenAiDto) {
+		const openAiApiParams = await this.prisma.openAiAPI.findUnique({
+			where: { name: 'free' },
 			include: {
 				completionOptionsOpenAi: true,
 			},
@@ -66,20 +122,12 @@ export class OpenaiService {
 				stream: true,
 				messages: dto.messages,
 				temperature: openAiApiParams.completionOptionsOpenAi.temperature,
-				max_tokens: openAiApiParams.completionOptionsOpenAi.maxTokens,
+				max_tokens: openAiApiParams.completionOptionsOpenAi.maxTokensOutput,
 			})
 			return stream
 		} catch (error) {
 			throw new BadGatewayException('Problems with OpenAi API', error)
 		}
-
-		//res.setHeader('Content-Type', 'text/plain')
-		//for await (const chunk of stream) {
-		// process.stdout.write(chunk.choices[0]?.delta?.content || '')
-		//res.write(chunk.choices[0]?.delta?.content || '')
-		//}
-		//res.end()
-		// return stream
 	}
 
 	async getOpenAiApiParams(id: number) {
@@ -106,7 +154,8 @@ export class OpenaiService {
 					update: {
 						stream: dto.completionOptionsOpenAi.stream,
 						temperature: dto.completionOptionsOpenAi.temperature,
-						maxTokens: dto.completionOptionsOpenAi.maxTokens,
+						maxTokensInput: dto.completionOptionsOpenAi.maxTokensInput,
+						maxTokensOutput: dto.completionOptionsOpenAi.maxTokensOutput,
 					},
 				},
 			},
@@ -119,12 +168,25 @@ export class OpenaiService {
 					create: {
 						stream: dto.completionOptionsOpenAi.stream,
 						temperature: dto.completionOptionsOpenAi.temperature,
-						maxTokens: dto.completionOptionsOpenAi.maxTokens,
+						maxTokensInput: dto.completionOptionsOpenAi.maxTokensInput,
+						maxTokensOutput: dto.completionOptionsOpenAi.maxTokensOutput,
 					},
 				},
 			},
 			include: {
 				completionOptionsOpenAi: true,
+			},
+		})
+		return openAiApi
+	}
+
+	async getAllOpenAiApiParams() {
+		const openAiApi = await this.prisma.openAiAPI.findMany({
+			include: {
+				completionOptionsOpenAi: true,
+			},
+			orderBy: {
+				updatedAt: 'desc',
 			},
 		})
 		return openAiApi

@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+//бесплатный - 2 генерации в день (200 токенов)
+//стандартная - 25 генераций + бесплатный тариф (500 токенов)
+//уникальный - 1000 генераций для 1 инструмента
+//безлимит - неограниченно
+
 model User {
   id       Int     @id @default(autoincrement())
   email    String  @unique
@@ -14,9 +19,39 @@ model User {
   password String
   isAdmin  Boolean @default(false)
 
-  yandexChats YandexChat[]
-  openAiChats OpenAiChat[]
-  countChats  Int          @default(0)
+  freeSubscription     FreeSubscription?
+  standardSubscription StandardSubscription?
+  yandexChats          YandexChat[]
+  openAiChats          OpenAiChat[]
+  countChats           Int                   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FreeSubscription {
+  id Int @id @default(autoincrement())
+
+  user   User @relation(fields: [userId], references: [id])
+  userId Int  @unique
+
+  isActive       Boolean  @default(true)
+  expirationDate DateTime
+  balance        Int      @default(2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StandardSubscription {
+  id Int @id @default(autoincrement())
+
+  user   User @relation(fields: [userId], references: [id])
+  userId Int  @unique
+
+  isActive       Boolean  @default(false)
+  expirationDate DateTime
+  balance        Int      @default(25)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -108,10 +143,11 @@ model OpenAiAPI {
 }
 
 model CompletionOptionsOpenAi {
-  id          Int     @id @default(autoincrement())
-  stream      Boolean
-  temperature Float
-  maxTokens   Int
+  id              Int     @id @default(autoincrement())
+  stream          Boolean
+  temperature     Float
+  maxTokensInput  Int
+  maxTokensOutput Int
 
   openAiAPI   OpenAiAPI @relation(fields: [openAiApiId], references: [id])
   openAiApiId Int       @unique
@@ -119,7 +155,3 @@ model CompletionOptionsOpenAi {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
-//бесплатный - 5 генераций + (2 ген в день на любых инструментах) (200 токенов)
-//стандартная - 25 генераций + (2 ген в день на любых инструментах) (500 токенов)
-//уникальный - 1000 генераций + (2 ген в день на любых инструментах) на основе самой популярной в прошлой подписке (1000 токенов)

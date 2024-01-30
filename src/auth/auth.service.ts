@@ -3,11 +3,12 @@ import {
 	ConflictException,
 	Injectable,
 	NotFoundException,
-	UnauthorizedException,
+	UnauthorizedException
 } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { verify } from 'argon2'
 import { Response } from 'express'
+import { SubscriptionsService } from 'src/subscriptions/subscriptions.service'
 import { UserService } from 'src/user/user.service'
 import { AuthDto } from './dto/auth.dto'
 import { RefreshTokenDto } from './dto/refresh-token.dto'
@@ -19,7 +20,8 @@ export class AuthService {
 
 	constructor(
 		private jwtService: JwtService,
-		private userService: UserService
+		private userService: UserService,
+		private subscriptionsService: SubscriptionsService
 	) {}
 
 	async login(dto: AuthDto) {
@@ -41,6 +43,7 @@ export class AuthService {
 			)
 
 		const { password, ...user } = await this.userService.createUser(dto)
+		await this.subscriptionsService.createFreeSubscription(user.id)
 
 		const tokens = await this.issueTokens(user.id)
 

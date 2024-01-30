@@ -13,7 +13,9 @@ class CompletionOptionsOpenAiDto {
 	@IsNumber()
 	temperature: number
 	@IsNumber()
-	maxTokens: number
+	maxTokensInput: number
+	@IsNumber()
+	maxTokensOutput: number
 }
 
 export class OpenAiApiDto {
@@ -32,4 +34,11 @@ export class OpenAiApiDto {
 export class OpenAiDto {
 	@IsArray()
 	messages: ChatCompletionMessageParam[]
+}
+
+export class Message {
+	@IsString()
+	role: string
+	@IsString()
+	content: string
 }

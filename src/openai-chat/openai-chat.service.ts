@@ -5,10 +5,12 @@ import {
 	NotFoundException,
 } from '@nestjs/common'
 import { Response } from 'express'
-import { ChatCompletion } from 'openai/resources'
+import { ChatCompletion, ChatCompletionMessageParam } from 'openai/resources'
 import { OpenaiMessageService } from 'src/openai-message/openai-message.service'
 import { OpenaiService } from 'src/openai/openai.service'
 import { PrismaService } from 'src/prisma.service'
+import { SubscriptionsService } from 'src/subscriptions/subscriptions.service'
+import { IUser } from 'src/user/user.interface'
 import { SendMessageDto, UpdateChatDto } from './dto/update-chat.dto'
 
 @Injectable()
@@ -16,9 +18,34 @@ export class OpenaiChatService {
 	constructor(
 		private prisma: PrismaService,
 		private openaiService: OpenaiService,
-		private openaiMessageService: OpenaiMessageService
+		private openaiMessageService: OpenaiMessageService,
+		private subscriptionsService: SubscriptionsService
 	) {}
+	// Unauthorized section
+	async sendMessageStreamUnauthorized(dto: SendMessageDto, res: Response) {
+		const messages = [
+			{
+				role: 'system',
+				content: 'ты помощник ассистент',
+			},
+			{
+				role: 'user',
+				content: dto.message,
+			},
+		] as ChatCompletionMessageParam[]
 
+		const stream = await this.openaiService.generateResponseStreamUnauthorized({
+			messages,
+		})
+		res.setHeader('Content-Type', 'text/plain')
+
+		for await (const chunk of stream) {
+			res.write(chunk.choices[0]?.delta?.content || '')
+		}
+		res.end()
+	}
+
+	// Authorized section
 	async createChat(userId: number) {
 		const user = await this.prisma.user.findUnique({
 			where: {
@@ -195,13 +222,22 @@ export class OpenaiChatService {
 		dto: SendMessageDto,
 		res: Response
 	) {
+		await this.subscriptionsService.checkFreeSubscription(userId)
+		await this.subscriptionsService.checkStandardSubscription(userId)
+
 		const user = await this.prisma.user.findUnique({
 			where: {
 				id: userId,
 			},
+			include: {
+				freeSubscription: true,
+				standardSubscription: true,
+			},
 		})
 
 		if (!user) throw new NotFoundException('User not found')
+
+		const nameSubscription = await this.calculateNameSubscription(user)
 
 		const chat = await this.prisma.openAiChat.findUnique({
 			where: {
@@ -224,7 +260,10 @@ export class OpenaiChatService {
 		)
 
 		let resultResponse = ''
-		const stream = await this.openaiService.generateResponseStream({ messages })
+		const stream = await this.openaiService.generateResponseStream(
+			{ messages },
+			nameSubscription
+		)
 		res.setHeader('Content-Type', 'text/plain')
 
 		for await (const chunk of stream) {
@@ -234,6 +273,7 @@ export class OpenaiChatService {
 		}
 		res.end()
 
+		await this.decrementSubscriptionBalance(userId, nameSubscription)
 		// console.log(resultResponse)
 		const updateChatDtoAi = {
 			userId: userId,
@@ -262,5 +302,52 @@ export class OpenaiChatService {
 		})
 
 		return chat
+	}
+
+	private async decrementSubscriptionBalance(
+		userId: number,
+		nameSubscription: string
+	) {
+		if (nameSubscription === 'standard') {
+			await this.prisma.standardSubscription.update({
+				where: {
+					userId: userId,
+				},
+				data: {
+					balance: {
+						decrement: 1,
+					},
+				},
+			})
+		} else if (nameSubscription === 'free') {
+			await this.prisma.freeSubscription.update({
+				where: {
+					userId: userId,
+				},
+				data: {
+					balance: {
+						decrement: 1,
+					},
+				},
+			})
+		}
+	}
+
+	private async calculateNameSubscription(user: IUser) {
+		if (
+			user.standardSubscription &&
+			user.standardSubscription.isActive &&
+			user.standardSubscription.balance > 0
+		) {
+			return 'standard'
+		} else if (
+			user.freeSubscription &&
+			user.freeSubscription.isActive &&
+			user.freeSubscription.balance > 0
+		) {
+			return 'free'
+		} else {
+			return 'none'
+		}
 	}
 }

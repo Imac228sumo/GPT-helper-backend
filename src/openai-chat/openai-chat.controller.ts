@@ -5,6 +5,7 @@ import {
 	Get,
 	HttpCode,
 	Param,
+	Post,
 	Put,
 	Res,
 	UsePipes,
@@ -20,9 +21,21 @@ import { OpenaiChatService } from './openai-chat.service'
 export class OpenaiChatController {
 	constructor(private readonly openaiChatService: OpenaiChatService) {}
 
+	// Unauthorized section
+	@HttpCode(200)
+	@UsePipes(new ValidationPipe())
+	@Post('send-message-stream-unauthorized')
+	async sendMessageStreamUnauthorized(
+		@Body() dto: SendMessageDto,
+		@Res() res: Response
+	) {
+		await this.openaiChatService.sendMessageStreamUnauthorized(dto, res)
+	}
+
+	// Authorized section
 	@Auth()
 	@Get('create-chat')
-	async createChatYandex(@CurrentUser('id') userId: number) {
+	async createChatOpenAi(@CurrentUser('id') userId: number) {
 		return this.openaiChatService.createChat(userId)
 	}
 

@@ -8,6 +8,7 @@ import {
 	UsePipes,
 	ValidationPipe,
 } from '@nestjs/common'
+import { Auth } from 'src/auth/decorators/auth.decorator'
 import { OpenAiApiDto, OpenAiDto } from './dto/create-openai.dto'
 import { OpenaiService } from './openai.service'
 
@@ -15,6 +16,7 @@ import { OpenaiService } from './openai.service'
 export class OpenaiController {
 	constructor(private readonly openaiService: OpenaiService) {}
 
+	@Auth()
 	@HttpCode(200)
 	@UsePipes(new ValidationPipe())
 	@Post('generateResponse')
@@ -22,6 +24,7 @@ export class OpenaiController {
 		return this.openaiService.generateResponse(dto)
 	}
 
+	@Auth()
 	@HttpCode(200)
 	@UsePipes(new ValidationPipe())
 	@Post('generateResponseStream')
@@ -30,15 +33,23 @@ export class OpenaiController {
 	}
 
 	// Admin section
+	@Auth('admin')
 	@UsePipes(new ValidationPipe())
 	@HttpCode(200)
 	@Post('createOrUpdateOpenAiApiParams')
-	async createOrUpdateYandexApiParams(@Body() dto: OpenAiApiDto) {
+	async createOrUpdateOpenAiApiParams(@Body() dto: OpenAiApiDto) {
 		return this.openaiService.createOrUpdateOpenAiApiParams(dto)
 	}
 
+	@Auth('admin')
 	@Get('getOpenAiApiParams/:id')
-	async getYandexApiParams(@Param('id') id: string) {
+	async getOpenAiApiParams(@Param('id') id: string) {
 		return this.openaiService.getOpenAiApiParams(+id)
+	}
+
+	@Auth('admin')
+	@Get('getAllOpenAiApiParams')
+	async getAllOpenAiApiParams() {
+		return this.openaiService.getAllOpenAiApiParams()
 	}
 }
