@@ -2,14 +2,12 @@
   Warnings:
 
   - You are about to drop the column `maxTokens` on the `CompletionOptionsOpenAi` table. All the data in the column will be lost.
-  - Added the required column `maxTokensInput` to the `CompletionOptionsOpenAi` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `maxTokensOutput` to the `CompletionOptionsOpenAi` table without a default value. This is not possible if the table is not empty.
 
 */
 -- AlterTable
 ALTER TABLE "CompletionOptionsOpenAi" DROP COLUMN "maxTokens",
-ADD COLUMN     "maxTokensInput" INTEGER NOT NULL,
-ADD COLUMN     "maxTokensOutput" INTEGER NOT NULL;
+ADD COLUMN     "maxTokensInput" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "maxTokensOutput" INTEGER NOT NULL DEFAULT 0;
 
 -- CreateTable
 CREATE TABLE "FreeSubscription" (
