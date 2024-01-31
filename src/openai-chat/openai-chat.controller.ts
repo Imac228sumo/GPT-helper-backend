@@ -15,6 +15,7 @@ import { Response } from 'express'
 import { Auth } from 'src/auth/decorators/auth.decorator'
 import { CurrentUser } from 'src/user/decorators/user.decorator'
 import { SendMessageDto } from 'src/yandex-chat/dto/update-chat.dto'
+import { SetNameDto } from './dto/update-chat.dto'
 import { OpenaiChatService } from './openai-chat.service'
 
 @Controller('openai-chats')
@@ -49,12 +50,26 @@ export class OpenaiChatController {
 	}
 
 	@Auth()
+	@Get()
+	async getAllChats(@CurrentUser('id') userId: number) {
+		return this.openaiChatService.getAllChats(userId)
+	}
+
+	@Auth()
 	@Get('get-last-message/:chatId')
 	async getLastMessage(
 		@Param('chatId') chatId: string,
 		@CurrentUser('id') userId: number
 	) {
 		return this.openaiChatService.getLastMessage(+chatId, userId)
+	}
+
+	@Auth()
+	@HttpCode(200)
+	@UsePipes(new ValidationPipe())
+	@Post('set-name')
+	async setName(@Body() dto: SetNameDto, @CurrentUser('id') userId: number) {
+		await this.openaiChatService.setName(userId, dto)
 	}
 
 	@Auth()

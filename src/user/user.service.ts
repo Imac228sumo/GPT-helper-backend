@@ -26,7 +26,7 @@ export class UserService {
 				standardSubscription: true,
 			},
 		})
-		if (!user) throw new NotFoundException('User not fount')
+		if (!user) throw new NotFoundException('User not found')
 		return user
 	}
 
@@ -170,7 +170,7 @@ export class UserService {
 				yandexChats: true,
 			},
 		})
-		if (!user) throw new NotFoundException('User not fount')
+		if (!user) throw new NotFoundException('User not found')
 
 		for (const chat of user.openAiChats) {
 			await this.openaiChatService.deleteChat(chat.id, user.id)

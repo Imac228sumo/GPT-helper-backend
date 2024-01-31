@@ -11,7 +11,11 @@ import { OpenaiService } from 'src/openai/openai.service'
 import { PrismaService } from 'src/prisma.service'
 import { SubscriptionsService } from 'src/subscriptions/subscriptions.service'
 import { IUser } from 'src/user/user.interface'
-import { SendMessageDto, UpdateChatDto } from './dto/update-chat.dto'
+import {
+	SendMessageDto,
+	SetNameDto,
+	UpdateChatDto,
+} from './dto/update-chat.dto'
 
 @Injectable()
 export class OpenaiChatService {
@@ -54,13 +58,13 @@ export class OpenaiChatService {
 		})
 		if (!user) throw new NotFoundException('User not found')
 
-		const countChat = await this.prisma.openAiChat.findMany({
+		const countChat = await this.prisma.openAiChat.count({
 			where: {
 				userId: userId,
 			},
 		})
 
-		if (countChat.length > 5)
+		if (countChat > 5)
 			throw new ForbiddenException('The chat limit has been exceeded')
 
 		const chat = await this.prisma.openAiChat.create({
@@ -70,6 +74,7 @@ export class OpenaiChatService {
 						id: user.id,
 					},
 				},
+				name: `Chat № ${countChat + 1}`,
 			},
 		})
 
@@ -108,6 +113,46 @@ export class OpenaiChatService {
 		return chat
 	}
 
+	async getAllChats(userId: number) {
+		const user = await this.prisma.user.findUnique({
+			where: {
+				id: userId,
+			},
+		})
+		if (!user) throw new NotFoundException('User not found')
+
+		const chats = await this.prisma.openAiChat.findMany({
+			include: {
+				messages: true,
+			},
+		})
+
+		return chats
+	}
+
+	async setName(userId: number, { name, chatId }: SetNameDto) {
+		const user = await this.prisma.user.findUnique({
+			where: {
+				id: userId,
+			},
+		})
+		if (!user) throw new NotFoundException('User not found')
+
+		const chat = await this.prisma.openAiChat.update({
+			where: {
+				id: chatId,
+			},
+			data: {
+				name: name,
+			},
+			include: {
+				messages: true,
+			},
+		})
+
+		return chat
+	}
+
 	async getLastMessage(chatId: number, userId: number) {
 		const user = await this.prisma.user.findUnique({
 			where: {
@@ -140,9 +185,13 @@ export class OpenaiChatService {
 
 		await this.openaiMessageService.createMessage(modifiedDto)
 
-		const chat = await this.prisma.openAiChat.findUnique({
+		const timeLastRequest = new Date()
+		const chat = await this.prisma.openAiChat.update({
 			where: {
 				id: id,
+			},
+			data: {
+				timeLastRequest: timeLastRequest,
 			},
 			include: {
 				messages: {

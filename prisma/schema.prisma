@@ -81,8 +81,10 @@ model yandexMessage {
 }
 
 model OpenAiChat {
-  id       Int             @id @default(autoincrement())
-  messages OpenAiMessage[]
+  id              Int             @id @default(autoincrement())
+  name            String
+  timeLastRequest DateTime?
+  messages        OpenAiMessage[]
 
   user   User @relation(fields: [userId], references: [id])
   userId Int
