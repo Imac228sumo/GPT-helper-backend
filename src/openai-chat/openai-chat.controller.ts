@@ -7,16 +7,19 @@ import {
 	Param,
 	Post,
 	Put,
+	Query,
 	Res,
 	UsePipes,
 	ValidationPipe,
 } from '@nestjs/common'
 import { Response } from 'express'
 import { Auth } from 'src/auth/decorators/auth.decorator'
+import { IdValidationPipe } from 'src/pipes/id.validation.pipe'
 import { CurrentUser } from 'src/user/decorators/user.decorator'
 import { SendMessageDto } from 'src/yandex-chat/dto/update-chat.dto'
 import { SetNameDto } from './dto/update-chat.dto'
 import { OpenaiChatService } from './openai-chat.service'
+import { IOpenAiChatsQuery } from './types'
 
 @Controller('openai-chats')
 export class OpenaiChatController {
@@ -43,7 +46,7 @@ export class OpenaiChatController {
 	@Auth()
 	@Get(':chatId')
 	async getChat(
-		@Param('chatId') chatId: string,
+		@Param('chatId', IdValidationPipe) chatId: string,
 		@CurrentUser('id') userId: number
 	) {
 		return this.openaiChatService.getChat(+chatId, userId)
@@ -51,14 +54,17 @@ export class OpenaiChatController {
 
 	@Auth()
 	@Get()
-	async getAllChats(@CurrentUser('id') userId: number) {
-		return this.openaiChatService.getAllChats(userId)
+	async getAllChats(
+		@CurrentUser('id') userId: number,
+		@Query() query: IOpenAiChatsQuery
+	) {
+		return this.openaiChatService.getAllChats(userId, query)
 	}
 
 	@Auth()
 	@Get('get-last-message/:chatId')
 	async getLastMessage(
-		@Param('chatId') chatId: string,
+		@Param('chatId', IdValidationPipe) chatId: string,
 		@CurrentUser('id') userId: number
 	) {
 		return this.openaiChatService.getLastMessage(+chatId, userId)
@@ -77,7 +83,7 @@ export class OpenaiChatController {
 	@UsePipes(new ValidationPipe())
 	@Put('send-message/:chatId')
 	async sendMessage(
-		@Param('chatId') chatId: string,
+		@Param('chatId', IdValidationPipe) chatId: string,
 		@CurrentUser('id') userId: number,
 		@Body() dto: SendMessageDto
 	) {
@@ -89,7 +95,7 @@ export class OpenaiChatController {
 	@UsePipes(new ValidationPipe())
 	@Put('send-message-stream/:chatId')
 	async sendMessageStream(
-		@Param('chatId') chatId: string,
+		@Param('chatId', IdValidationPipe) chatId: string,
 		@CurrentUser('id') userId: number,
 		@Body() dto: SendMessageDto,
 		@Res() res: Response
@@ -101,7 +107,7 @@ export class OpenaiChatController {
 	@HttpCode(200)
 	@Delete('delete-chat/:chatId')
 	async deleteChat(
-		@Param('chatId') chatId: string,
+		@Param('chatId', IdValidationPipe) chatId: string,
 		@CurrentUser('id') userId: number
 	) {
 		return this.openaiChatService.deleteChat(+chatId, userId)

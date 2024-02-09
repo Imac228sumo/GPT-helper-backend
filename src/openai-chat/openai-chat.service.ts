@@ -1,9 +1,10 @@
 import {
-	ForbiddenException,
+	BadRequestException,
 	Injectable,
 	InternalServerErrorException,
 	NotFoundException,
 } from '@nestjs/common'
+import { isNumber } from 'class-validator'
 import { Response } from 'express'
 import { ChatCompletion, ChatCompletionMessageParam } from 'openai/resources'
 import { OpenaiMessageService } from 'src/openai-message/openai-message.service'
@@ -16,6 +17,7 @@ import {
 	SetNameDto,
 	UpdateChatDto,
 } from './dto/update-chat.dto'
+import { IOpenAiChatsQuery } from './types'
 
 @Injectable()
 export class OpenaiChatService {
@@ -58,14 +60,14 @@ export class OpenaiChatService {
 		})
 		if (!user) throw new NotFoundException('User not found')
 
-		const countChat = await this.prisma.openAiChat.count({
+		const countChats = await this.prisma.openAiChat.count({
 			where: {
 				userId: userId,
 			},
 		})
 
-		if (countChat > 5)
-			throw new ForbiddenException('The chat limit has been exceeded')
+		// if (countChats > 5)
+		// 	throw new ForbiddenException('The chat limit has been exceeded')
 
 		const chat = await this.prisma.openAiChat.create({
 			data: {
@@ -74,7 +76,7 @@ export class OpenaiChatService {
 						id: user.id,
 					},
 				},
-				name: `Chat № ${countChat + 1}`,
+				name: `Chat № ${countChats + 1}`,
 			},
 		})
 
@@ -113,7 +115,7 @@ export class OpenaiChatService {
 		return chat
 	}
 
-	async getAllChats(userId: number) {
+	async getAllChats(userId: number, query: IOpenAiChatsQuery) {
 		const user = await this.prisma.user.findUnique({
 			where: {
 				id: userId,
@@ -121,13 +123,31 @@ export class OpenaiChatService {
 		})
 		if (!user) throw new NotFoundException('User not found')
 
-		const chats = await this.prisma.openAiChat.findMany({
-			include: {
-				messages: true,
-			},
-		})
+		if (
+			!(isNumber(+query.page) && +query.page >= 0) ||
+			!(isNumber(+query.limit) && +query.limit >= 0)
+		)
+			throw new BadRequestException('Invalid format query params')
 
-		return chats
+		if (query.page && query.limit) {
+			const skip = (+query.page - 1) * +query.limit
+			const chats = await this.prisma.openAiChat.findMany({
+				include: {
+					messages: false,
+				},
+				skip,
+				take: +query.limit,
+			})
+
+			return chats
+		} else {
+			const chats = await this.prisma.openAiChat.findMany({
+				include: {
+					messages: false,
+				},
+			})
+			return chats
+		}
 	}
 
 	async setName(userId: number, { name, chatId }: SetNameDto) {

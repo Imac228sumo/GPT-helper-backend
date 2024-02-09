@@ -10,8 +10,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 		private configService: ConfigService,
 		private userService: UserService
 	) {
-		const jwtSecret = configService.get('JWT_SECRET')
-		console.log('JWT_SECRET:', jwtSecret)
+		require('dotenv').config()
 
 		super({
 			jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),

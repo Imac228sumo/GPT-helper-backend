@@ -3,7 +3,7 @@ import {
 	ConflictException,
 	Injectable,
 	NotFoundException,
-	UnauthorizedException
+	UnauthorizedException,
 } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { verify } from 'argon2'
@@ -72,11 +72,11 @@ export class AuthService {
 		const data = { id: userId }
 
 		const accessToken = this.jwtService.sign(data, {
-			expiresIn: '1h',
+			expiresIn: '5s',
 		})
 
 		const refreshToken = this.jwtService.sign(data, {
-			expiresIn: '1d',
+			expiresIn: '10s',
 		})
 
 		return { accessToken, refreshToken }

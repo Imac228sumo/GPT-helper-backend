@@ -10,6 +10,7 @@ import {
 	ValidationPipe,
 } from '@nestjs/common'
 import { Auth } from 'src/auth/decorators/auth.decorator'
+import { IdValidationPipe } from 'src/pipes/id.validation.pipe'
 import { CurrentUser } from 'src/user/decorators/user.decorator'
 import { SendMessageDto } from './dto/update-chat.dto'
 import { YandexChatService } from './yandex-chat.service'
@@ -27,7 +28,7 @@ export class YandexChatController {
 	@Auth()
 	@Get(':chatId')
 	async getChat(
-		@Param('chatId') chatId: string,
+		@Param('chatId', IdValidationPipe) chatId: string,
 		@CurrentUser('id') userId: number
 	) {
 		return this.yandexChatService.getChat(+chatId, userId)
@@ -38,7 +39,7 @@ export class YandexChatController {
 	@UsePipes(new ValidationPipe())
 	@Put('send-message/:chatId')
 	async sendMessage(
-		@Param('chatId') chatId: string,
+		@Param('chatId', IdValidationPipe) chatId: string,
 		@CurrentUser('id') userId: number,
 		@Body() dto: SendMessageDto
 	) {
@@ -49,7 +50,7 @@ export class YandexChatController {
 	@HttpCode(200)
 	@Delete('delete-chat/:chatId')
 	async deleteChat(
-		@Param('chatId') chatId: string,
+		@Param('chatId', IdValidationPipe) chatId: string,
 		@CurrentUser('id') userId: number
 	) {
 		return this.yandexChatService.deleteChat(+chatId, userId)

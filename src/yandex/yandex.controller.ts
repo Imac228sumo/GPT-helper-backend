@@ -8,6 +8,7 @@ import {
 	UsePipes,
 	ValidationPipe,
 } from '@nestjs/common'
+import { IdValidationPipe } from 'src/pipes/id.validation.pipe'
 import { YandexApiDto, YandexDto } from './dto/create-yandex.dto'
 import { YandexService } from './yandex.service'
 
@@ -31,7 +32,7 @@ export class YandexController {
 	}
 
 	@Get('getYandexApiParams/:id')
-	async getYandexApiParams(@Param('id') id: string) {
+	async getYandexApiParams(@Param('id', IdValidationPipe) id: string) {
 		return this.yandexService.getYandexApiParams(+id)
 	}
 }

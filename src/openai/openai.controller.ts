@@ -9,6 +9,7 @@ import {
 	ValidationPipe,
 } from '@nestjs/common'
 import { Auth } from 'src/auth/decorators/auth.decorator'
+import { IdValidationPipe } from 'src/pipes/id.validation.pipe'
 import { OpenAiApiDto, OpenAiDto } from './dto/create-openai.dto'
 import { OpenaiService } from './openai.service'
 
@@ -43,7 +44,7 @@ export class OpenaiController {
 
 	@Auth('admin')
 	@Get('getOpenAiApiParams/:id')
-	async getOpenAiApiParams(@Param('id') id: string) {
+	async getOpenAiApiParams(@Param('id', IdValidationPipe) id: string) {
 		return this.openaiService.getOpenAiApiParams(+id)
 	}
 

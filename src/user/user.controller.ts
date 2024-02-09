@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common'
 import { Auth } from 'src/auth/decorators/auth.decorator'
 import { OpenaiChatService } from 'src/openai-chat/openai-chat.service'
+import { IdValidationPipe } from 'src/pipes/id.validation.pipe'
 import { CurrentUser } from './decorators/user.decorator'
 import { UpdateUserDto } from './dto/update-user.dto'
 import { UserService } from './user.service'
@@ -62,7 +63,7 @@ export class UserController {
 
 	@Get(':id')
 	@Auth('admin')
-	async getUserById(@Param('id') id: string) {
+	async getUserById(@Param('id', IdValidationPipe) id: string) {
 		return this.userService.getUserById(+id)
 	}
 
@@ -72,7 +73,7 @@ export class UserController {
 	@Put(':_id')
 	async updateUser(
 		@CurrentUser('id') id: number,
-		@Param('_id') _id: string,
+		@Param('_id', IdValidationPipe) _id: string,
 		@Body() dto: UpdateUserDto
 	) {
 		return this.userService.updateUserById(id, +_id, dto)
@@ -81,7 +82,7 @@ export class UserController {
 	@Delete(':id')
 	@HttpCode(200)
 	@Auth('admin')
-	async deleteUser(@Param('id') id: string) {
+	async deleteUser(@Param('id', IdValidationPipe) id: string) {
 		return this.userService.deleteUser(+id)
 	}
 }
