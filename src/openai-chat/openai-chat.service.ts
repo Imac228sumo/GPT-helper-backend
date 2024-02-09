@@ -123,13 +123,12 @@ export class OpenaiChatService {
 		})
 		if (!user) throw new NotFoundException('User not found')
 
-		if (
-			!(isNumber(+query.page) && +query.page >= 0) ||
-			!(isNumber(+query.limit) && +query.limit >= 0)
-		)
-			throw new BadRequestException('Invalid format query params')
-
 		if (query.page && query.limit) {
+			if (
+				!(isNumber(+query.page) && +query.page >= 0) ||
+				!(isNumber(+query.limit) && +query.limit >= 0)
+			)
+				throw new BadRequestException('Invalid format query params')
 			const skip = (+query.page - 1) * +query.limit
 			const chats = await this.prisma.openAiChat.findMany({
 				include: {
