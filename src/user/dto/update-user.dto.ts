@@ -1,6 +1,7 @@
+import { Role } from '@prisma/client'
 import {
-	IsBoolean,
 	IsEmail,
+	IsNumber,
 	IsOptional,
 	IsString,
 	MinLength,
@@ -17,14 +18,32 @@ export class UpdateUserDto {
 	@IsOptional()
 	name?: string
 
-	@MinLength(6, {
+	@MinLength(8, {
 		message: 'Password cannot be less then 6 character!',
 	})
 	@IsString()
 	@IsOptional()
 	password?: string
 
-	@IsBoolean()
+	@IsString()
 	@IsOptional()
-	isAdmin?: boolean
+	role?: Role
+
+	@IsNumber()
+	@IsOptional()
+	referralCount?: number
+
+	@IsString()
+	@IsOptional()
+	referralCode?: string
+}
+
+export class UpdatePasswordDto {
+	@IsString()
+	oldPassword?: string
+	@MinLength(8, {
+		message: 'Password cannot be less then 6 character!',
+	})
+	@IsString()
+	newPassword: string
 }

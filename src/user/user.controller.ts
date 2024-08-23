@@ -11,18 +11,14 @@ import {
 	ValidationPipe,
 } from '@nestjs/common'
 import { Auth } from 'src/auth/decorators/auth.decorator'
-import { OpenaiChatService } from 'src/openai-chat/openai-chat.service'
 import { IdValidationPipe } from 'src/pipes/id.validation.pipe'
 import { CurrentUser } from './decorators/user.decorator'
-import { UpdateUserDto } from './dto/update-user.dto'
+import { UpdatePasswordDto, UpdateUserDto } from './dto/update-user.dto'
 import { UserService } from './user.service'
 
 @Controller('users')
 export class UserController {
-	constructor(
-		private readonly userService: UserService,
-		private openaiChatService: OpenaiChatService
-	) {}
+	constructor(private readonly userService: UserService) {}
 
 	// Authorized section
 	@Auth()
@@ -43,6 +39,17 @@ export class UserController {
 	}
 
 	@Auth()
+	@UsePipes(new ValidationPipe())
+	@HttpCode(200)
+	@Put('profile/password')
+	async resetPassword(
+		@CurrentUser('id') id: number,
+		@Body() dto: UpdatePasswordDto
+	) {
+		return this.userService.updatePasswordById(id, dto)
+	}
+
+	@Auth()
 	@Delete('profile')
 	async deleteProfile(@CurrentUser('id') id: number) {
 		return this.userService.deleteUser(id)
@@ -50,24 +57,24 @@ export class UserController {
 
 	// Admin section
 	@Get('count')
-	@Auth('admin')
+	@Auth('ADMIN')
 	async getCountUsers() {
 		return this.userService.getCountUsers()
 	}
 
-	@Auth('admin')
+	@Auth('ADMIN')
 	@Get()
 	async getAllUsers(@Query('searchTerm') searchTerm?: string) {
 		return this.userService.getAllUsers(searchTerm)
 	}
 
 	@Get(':id')
-	@Auth('admin')
+	@Auth('ADMIN')
 	async getUserById(@Param('id', IdValidationPipe) id: string) {
 		return this.userService.getUserById(+id)
 	}
 
-	@Auth('admin')
+	@Auth('ADMIN')
 	@UsePipes(new ValidationPipe())
 	@HttpCode(200)
 	@Put(':_id')
@@ -81,7 +88,7 @@ export class UserController {
 
 	@Delete(':id')
 	@HttpCode(200)
-	@Auth('admin')
+	@Auth('ADMIN')
 	async deleteUser(@Param('id', IdValidationPipe) id: string) {
 		return this.userService.deleteUser(+id)
 	}

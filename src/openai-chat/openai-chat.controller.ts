@@ -14,10 +14,11 @@ import {
 } from '@nestjs/common'
 import { Response } from 'express'
 import { Auth } from 'src/auth/decorators/auth.decorator'
+import { IOpenAiMessagesQuery } from 'src/openai-message/types'
 import { IdValidationPipe } from 'src/pipes/id.validation.pipe'
 import { CurrentUser } from 'src/user/decorators/user.decorator'
-import { SendMessageDto } from 'src/yandex-chat/dto/update-chat.dto'
-import { SetNameDto } from './dto/update-chat.dto'
+import { CreateChatDto } from './dto/create-chat.dto'
+import { SendMessageDto, SetNameDto } from './dto/update-chat.dto'
 import { OpenaiChatService } from './openai-chat.service'
 import { IOpenAiChatsQuery } from './types'
 
@@ -38,9 +39,14 @@ export class OpenaiChatController {
 
 	// Authorized section
 	@Auth()
-	@Get('create-chat')
-	async createChatOpenAi(@CurrentUser('id') userId: number) {
-		return this.openaiChatService.createChat(userId)
+	@HttpCode(200)
+	@UsePipes(new ValidationPipe())
+	@Post('create-chat')
+	async createChatOpenAi(
+		@CurrentUser('id') userId: number,
+		@Body() name: CreateChatDto
+	) {
+		return this.openaiChatService.createChat(userId, name)
 	}
 
 	@Auth()
@@ -59,6 +65,16 @@ export class OpenaiChatController {
 		@Query() query: IOpenAiChatsQuery
 	) {
 		return this.openaiChatService.getAllChats(userId, query)
+	}
+
+	@Auth()
+	@Get('messages/:chatId')
+	async getAllMessages(
+		@CurrentUser('id') userId: number,
+		@Param('chatId', IdValidationPipe) chatId: string,
+		@Query() query: IOpenAiMessagesQuery
+	) {
+		return this.openaiChatService.getAllMessages(userId, +chatId, query)
 	}
 
 	@Auth()
@@ -95,12 +111,30 @@ export class OpenaiChatController {
 	@UsePipes(new ValidationPipe())
 	@Put('send-message-stream/:chatId')
 	async sendMessageStream(
-		@Param('chatId', IdValidationPipe) chatId: string,
 		@CurrentUser('id') userId: number,
 		@Body() dto: SendMessageDto,
-		@Res() res: Response
+		@Res() res: Response,
+		@Param('chatId', IdValidationPipe) chatId: string
 	) {
 		return this.openaiChatService.sendMessageStream(+chatId, userId, dto, res)
+	}
+
+	@Auth()
+	@HttpCode(200)
+	@UsePipes(new ValidationPipe())
+	@Put('regenerate-message-stream/:chatId')
+	async regenerateMessageStream(
+		@CurrentUser('id') userId: number,
+		@Body() dto: SendMessageDto,
+		@Res() res: Response,
+		@Param('chatId', IdValidationPipe) chatId: string
+	) {
+		return this.openaiChatService.regenerateMessageStream(
+			+chatId,
+			userId,
+			dto,
+			res
+		)
 	}
 
 	@Auth()

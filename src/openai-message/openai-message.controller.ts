@@ -9,7 +9,6 @@ import {
 } from '@nestjs/common'
 import { Auth } from 'src/auth/decorators/auth.decorator'
 import { IdValidationPipe } from 'src/pipes/id.validation.pipe'
-import { CurrentUser } from 'src/user/decorators/user.decorator'
 import { CreateOpenaiMessageDto } from './dto/create-openai-message.dto'
 import { OpenaiMessageService } from './openai-message.service'
 
@@ -26,29 +25,20 @@ export class OpenaiMessageController {
 
 	@Get(':chatId')
 	@Auth()
-	async findAllMessages(
-		@Param('chatId', IdValidationPipe) chatId: string,
-		@CurrentUser('id') userId: number
-	) {
-		return this.openaiMessageService.findAllMessages(+chatId, userId)
+	async getAllMessages(@Param('chatId', IdValidationPipe) chatId: string) {
+		return this.openaiMessageService.getAllMessages(+chatId)
 	}
 
 	@Get('get-last-message/:chatId')
 	@Auth()
-	async findLastMessage(
-		@Param('chatId', IdValidationPipe) chatId: string,
-		@CurrentUser('id') userId: number
-	) {
-		return this.openaiMessageService.findLastMessage(+chatId, userId)
+	async findLastMessage(@Param('chatId', IdValidationPipe) chatId: string) {
+		return this.openaiMessageService.findLastMessage(+chatId)
 	}
 
 	@Delete(':chatId')
 	@Auth()
 	@HttpCode(200)
-	async deleteAllMessages(
-		@Param('chatId', IdValidationPipe) chatId: string,
-		@CurrentUser('id') userId: number
-	) {
-		return this.openaiMessageService.deleteAllMessages(+chatId, userId)
+	async deleteAllMessages(@Param('chatId', IdValidationPipe) chatId: string) {
+		return this.openaiMessageService.deleteAllMessages(+chatId)
 	}
 }

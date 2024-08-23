@@ -34,7 +34,7 @@ export class OpenaiController {
 	}
 
 	// Admin section
-	@Auth('admin')
+	@Auth('ADMIN')
 	@UsePipes(new ValidationPipe())
 	@HttpCode(200)
 	@Post('createOrUpdateOpenAiApiParams')
@@ -42,13 +42,13 @@ export class OpenaiController {
 		return this.openaiService.createOrUpdateOpenAiApiParams(dto)
 	}
 
-	@Auth('admin')
+	@Auth('ADMIN')
 	@Get('getOpenAiApiParams/:id')
 	async getOpenAiApiParams(@Param('id', IdValidationPipe) id: string) {
 		return this.openaiService.getOpenAiApiParams(+id)
 	}
 
-	@Auth('admin')
+	@Auth('ADMIN')
 	@Get('getAllOpenAiApiParams')
 	async getAllOpenAiApiParams() {
 		return this.openaiService.getAllOpenAiApiParams()

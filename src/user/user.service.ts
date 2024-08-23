@@ -1,19 +1,25 @@
 import {
+	BadRequestException,
 	ConflictException,
 	Injectable,
+	InternalServerErrorException,
 	NotFoundException,
 } from '@nestjs/common'
-import { hash } from 'argon2'
-import { AuthDto } from 'src/auth/dto/auth.dto'
+import { hash, verify } from 'argon2'
 import { OpenaiChatService } from 'src/openai-chat/openai-chat.service'
 import { PrismaService } from 'src/prisma.service'
-import { UpdateUserDto } from './dto/update-user.dto'
+import { ReferralsService } from 'src/referrals/referrals.service'
+import { errors } from 'src/utils/errors'
+import { getInitials } from 'src/utils/get-initials'
+import { CreateUserDto } from './dto/create-user.dto'
+import { UpdatePasswordDto, UpdateUserDto } from './dto/update-user.dto'
 
 @Injectable()
 export class UserService {
 	constructor(
 		private prisma: PrismaService,
-		private openaiChatService: OpenaiChatService
+		private openaiChatService: OpenaiChatService,
+		private referralsService: ReferralsService
 	) {}
 
 	async getUserById(id: number) {
@@ -22,8 +28,42 @@ export class UserService {
 				id,
 			},
 			include: {
-				freeSubscription: true,
-				standardSubscription: true,
+				subscriptions: {
+					include: {
+						plan: {
+							include: {
+								tools: {
+									include: {
+										tool: true,
+									},
+								},
+								optionsForPlan: {
+									include: {
+										optionForPlan: true,
+									},
+								},
+							},
+						},
+					},
+				},
+				referrals: {
+					select: {
+						id: true,
+						referredByUserId: true,
+						userId: true,
+						countPaid: true,
+						countProcessing: true,
+					},
+				},
+				referral: {
+					select: {
+						id: true,
+						referredByUserId: true,
+						userId: true,
+						countPaid: true,
+						countProcessing: true,
+					},
+				},
 			},
 		})
 		if (!user) throw new NotFoundException('User not found')
@@ -64,7 +104,7 @@ export class UserService {
 				email: true,
 				id: true,
 				password: false,
-				isAdmin: true,
+				role: true,
 			},
 			orderBy: {
 				createdAt: 'desc',
@@ -76,19 +116,70 @@ export class UserService {
 		return this.prisma.user.count()
 	}
 
-	async createUser(dto: AuthDto) {
-		// const users = await this.getAllUsers()
+	async createUser(dto: CreateUserDto) {
+		if (dto.referralCode) {
+			const referrer = await this.referralsService.getReferralIdByCode(
+				dto.referralCode
+			)
 
-		const user = {
-			// id: users.length + 1,
-			email: dto.email,
-			name: dto.name !== undefined ? dto.name : dto.email,
-			password: await hash(dto.password),
+			const shortName = getInitials(
+				dto.name !== undefined ? dto.name : dto.email
+			)
+			const user = {
+				email: dto.email,
+				name: dto.name !== undefined ? dto.name : dto.email,
+				shortName: shortName,
+				password: await hash(dto.password),
+				referralCode: await this.referralsService.generateReferralCode(
+					dto.email
+				),
+			}
+
+			const newUser = await this.prisma.user.create({
+				data: user,
+			})
+
+			if (!newUser) {
+				throw new InternalServerErrorException("Unable to create user's data")
+			}
+
+			const referral = await this.referralsService.createReferral({
+				referredByUserId: referrer,
+				userId: newUser.id,
+			})
+
+			if (!referral) {
+				throw new InternalServerErrorException(
+					"Unable to create referral's data"
+				)
+			}
+
+			await this.referralsService.incrementReferrer(referrer)
+
+			return newUser
+		} else {
+			const shortName = getInitials(
+				dto.name !== undefined ? dto.name : dto.email
+			)
+			const user = {
+				email: dto.email,
+				name: dto.name !== undefined ? dto.name : dto.email,
+				shortName: shortName,
+				password: await hash(dto.password),
+				referralCode: await this.referralsService.generateReferralCode(
+					dto.email
+				),
+			}
+
+			const newUser = await this.prisma.user.create({
+				data: user,
+			})
+
+			if (!newUser) {
+				throw new InternalServerErrorException("Unable to create user's data")
+			}
+			return newUser
 		}
-
-		return this.prisma.user.create({
-			data: user,
-		})
 	}
 
 	async updateProfileById(id: number, dto: UpdateUserDto) {
@@ -98,9 +189,7 @@ export class UserService {
 			const oldUser = await this.getUserByEmail(dto.email)
 
 			if (oldUser)
-				throw new ConflictException(
-					'User  with this email is already in the system'
-				)
+				throw new ConflictException(errors.UserWithEmailIsAlreadyInSystem)
 		}
 
 		const isSameUser = await this.prisma.user.findUnique({
@@ -113,7 +202,7 @@ export class UserService {
 			throw new NotFoundException('Email busy')
 		}
 
-		await this.prisma.user.update({
+		const updatedUser = await this.prisma.user.update({
 			where: {
 				id: id,
 			},
@@ -122,10 +211,39 @@ export class UserService {
 				name: dto.name !== undefined ? dto.name : user.name,
 				password:
 					dto.password !== undefined ? await hash(dto.password) : user.password,
+				role: dto.role,
 			},
 		})
 
-		return
+		if (!updatedUser) {
+			throw new InternalServerErrorException("Unable to update user's data")
+		}
+
+		return updatedUser
+	}
+
+	async updatePasswordById(id: number, dto: UpdatePasswordDto) {
+		const user = await this.getUserById(id)
+		if (!user) throw new NotFoundException(errors.UserIsNotFound)
+
+		if (!(await verify(user.password, dto.oldPassword))) {
+			throw new BadRequestException(errors.CurrentPasswordIncorrect)
+		}
+
+		const updatedUser = await this.prisma.user.update({
+			where: {
+				id: id,
+			},
+			data: {
+				password: await hash(dto.newPassword),
+			},
+		})
+
+		if (!updatedUser) {
+			throw new InternalServerErrorException("Unable to update user's data")
+		}
+
+		return updatedUser
 	}
 
 	async updateUserById(id: number, _id: number, dto: UpdateUserDto) {
@@ -145,7 +263,7 @@ export class UserService {
 			throw new NotFoundException('Email busy')
 		}
 
-		await this.prisma.user.update({
+		const updatedUser = await this.prisma.user.update({
 			where: {
 				id: _id,
 			},
@@ -153,11 +271,14 @@ export class UserService {
 				email: dto.email,
 				name: dto.name !== undefined ? dto.name : user.name,
 				password: dto.password ? await hash(dto.password) : user.password,
-				isAdmin: dto.isAdmin !== undefined ? dto.isAdmin : user.isAdmin,
 			},
 		})
 
-		return
+		if (!updatedUser) {
+			throw new InternalServerErrorException("Unable to update user's data")
+		}
+
+		return updatedUser
 	}
 
 	async deleteUser(id: number) {
@@ -165,23 +286,19 @@ export class UserService {
 			where: {
 				id,
 			},
-			include: {
-				openAiChats: true,
-				yandexChats: true,
-			},
 		})
 		if (!user) throw new NotFoundException('User not found')
-
-		for (const chat of user.openAiChats) {
-			await this.openaiChatService.deleteChat(chat.id, user.id)
-		}
 
 		const removesUser = await this.prisma.user.delete({
 			where: {
 				id: id,
 			},
 		})
-		if (!removesUser) throw new NotFoundException('User not found')
+
+		if (!removesUser) {
+			throw new InternalServerErrorException("Unable to delete user's data")
+		}
+
 		return removesUser
 	}
 }

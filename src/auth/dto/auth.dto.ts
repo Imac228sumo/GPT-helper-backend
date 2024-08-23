@@ -11,7 +11,7 @@ export class AuthDto {
 	@IsString()
 	name?: string
 
-	@MinLength(6, {
+	@MinLength(8, {
 		message: 'Password must be at least 6 characters long',
 	})
 	@IsString()

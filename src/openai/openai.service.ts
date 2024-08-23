@@ -1,16 +1,17 @@
 import {
 	BadGatewayException,
-	BadRequestException,
 	Injectable,
+	InternalServerErrorException,
 	NotFoundException,
 } from '@nestjs/common'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import OpenAI from 'openai'
 import { ModelType } from 'openai-gpt-token-counter'
+import { Stream } from 'openai/streaming'
 import { PrismaService } from 'src/prisma.service'
+import { errors } from 'src/utils/errors'
 import { Message, OpenAiApiDto, OpenAiDto } from './dto/create-openai.dto'
-const openaiTokenCounter = require('openai-gpt-token-counter')
-
+const openaiTokenCounter = require('openai-gpt-token-counter') // eslint-disable-line
 @Injectable()
 export class OpenaiService {
 	constructor(private prisma: PrismaService) {}
@@ -41,17 +42,17 @@ export class OpenaiService {
 			max_tokens: openAiApiParams.completionOptionsOpenAi.maxTokensOutput,
 		})
 
+		if (!response)
+			throw new InternalServerErrorException("Unable to create response's data")
+
 		return response
 	}
 
 	async generateResponseStream(
 		dto: OpenAiDto,
 		nameSubscription: string = 'none'
-	) {
-		//free/standard/unique/unlimited
-		if (nameSubscription === 'none') {
-			throw new BadGatewayException('Subscription ended')
-		}
+	): Promise<string | Stream<OpenAI.Chat.Completions.ChatCompletionChunk>> {
+		const errorResponse = errors.ProblemsWithOpenAiAPI
 		const openAiApiParams = await this.prisma.openAiAPI.findUnique({
 			where: { name: nameSubscription },
 			include: {
@@ -59,8 +60,7 @@ export class OpenaiService {
 			},
 		})
 
-		if (!openAiApiParams)
-			throw new BadGatewayException('Problems with OpenAi API')
+		if (!openAiApiParams) return errorResponse
 
 		const httpProxyUrl = openAiApiParams.httpProxyUrl
 
@@ -68,19 +68,18 @@ export class OpenaiService {
 			apiKey: openAiApiParams.apiKey,
 			httpAgent: new HttpsProxyAgent(httpProxyUrl),
 		})
-		if (!openai) throw new BadGatewayException('Problems with OpenAi API')
+
+		if (!openai) return errorResponse
 
 		const messagesTMP = [dto.messages.slice(-1)[0]] as Message[]
 		const tokenCount = openaiTokenCounter.chat(
 			messagesTMP,
 			openAiApiParams.model as ModelType
 		)
-		// console.log(messagesTMP)
 
 		if (tokenCount > openAiApiParams.completionOptionsOpenAi.maxTokensInput) {
-			throw new BadRequestException(
-				`Too many tokens: ${tokenCount}. The maximum number of tokens is ${openAiApiParams.completionOptionsOpenAi.maxTokensInput}`
-			)
+			const error = `!!!***123-Too many tokens: ${tokenCount}. The maximum number of tokens is ${openAiApiParams.completionOptionsOpenAi.maxTokensInput}-321***!!!`
+			return error
 		}
 
 		try {
@@ -93,7 +92,8 @@ export class OpenaiService {
 			})
 			return stream
 		} catch (error) {
-			throw new BadGatewayException('Problems with OpenAi API', error)
+			console.log(error)
+			return errorResponse
 		}
 	}
 
@@ -177,6 +177,13 @@ export class OpenaiService {
 				completionOptionsOpenAi: true,
 			},
 		})
+
+		if (!openAiApi) {
+			throw new InternalServerErrorException(
+				"Unable to create or update openAiApi's data"
+			)
+		}
+
 		return openAiApi
 	}
 
@@ -193,16 +200,56 @@ export class OpenaiService {
 	}
 }
 
-//https://nBM1a2:TLx66Y@185.88.98.71:8000 - proxy
-// 	try {
-// 		const response = await httpsProxyAgent.post(
-// 			'https://api.openai.com/v1/chat/completions',
-// 			data,
-// 			{ headers }
-// 		)
-// 		//console.log('response:', response.data)
-// 		return response.data
-// 	} catch (error) {
-// 		//console.error('error while making axios POST request with proxy', error)
-// 		throw error
-// 	}
+/*
+
+async generateResponseStream(
+		dto: OpenAiDto,
+		nameSubscription: string = 'none'
+	) {
+		//free/standard/unique/unlimited
+
+		const openAiApiParams = await this.prisma.openAiAPI.findUnique({
+			where: { name: nameSubscription },
+			include: {
+				completionOptionsOpenAi: true,
+			},
+		})
+
+		if (!openAiApiParams)
+			throw new BadGatewayException('Problems with OpenAi API')
+
+		const httpProxyUrl = openAiApiParams.httpProxyUrl
+
+		const openai = new OpenAI({
+			apiKey: openAiApiParams.apiKey,
+			httpAgent: new HttpsProxyAgent(httpProxyUrl),
+		})
+		if (!openai) throw new BadGatewayException('Problems with OpenAi API')
+
+		const messagesTMP = [dto.messages.slice(-1)[0]] as Message[]
+		const tokenCount = openaiTokenCounter.chat(
+			messagesTMP,
+			openAiApiParams.model as ModelType
+		)
+
+		if (tokenCount > openAiApiParams.completionOptionsOpenAi.maxTokensInput) {
+			throw new BadRequestException(
+				`Too many tokens: ${tokenCount}. The maximum number of tokens is ${openAiApiParams.completionOptionsOpenAi.maxTokensInput}`
+			)
+		}
+
+		try {
+			const stream = await openai.chat.completions.create({
+				model: openAiApiParams.model,
+				stream: true,
+				messages: dto.messages,
+				temperature: openAiApiParams.completionOptionsOpenAi.temperature,
+				max_tokens: openAiApiParams.completionOptionsOpenAi.maxTokensOutput,
+			})
+			return stream
+		} catch (error) {
+			throw new BadGatewayException('Problems with OpenAi API', error)
+		}
+	}
+
+*/

@@ -10,8 +10,11 @@ import {
 	ValidationPipe,
 } from '@nestjs/common'
 import { Request, Response } from 'express'
+import { CreateUserDto } from 'src/user/dto/create-user.dto'
 import { AuthService } from './auth.service'
 import { AuthDto } from './dto/auth.dto'
+import { PasswordRecoveryDto } from './dto/password-recovery.dto'
+import { PasswordResetDto } from './dto/password-reset.dto'
 
 @Controller('auth')
 export class AuthController {
@@ -30,12 +33,26 @@ export class AuthController {
 	@HttpCode(200)
 	@Post('register')
 	async register(
-		@Body() dto: AuthDto,
+		@Body() dto: CreateUserDto,
 		@Res({ passthrough: true }) res: Response
 	) {
 		const { refreshToken, ...response } = await this.authService.register(dto)
 		this.authService.addRefreshTokenToResponse(res, refreshToken)
 		return response
+	}
+
+	@UsePipes(new ValidationPipe())
+	@HttpCode(200)
+	@Post('password-recovery')
+	async passwordRecovery(@Body() dto: PasswordRecoveryDto) {
+		return this.authService.passwordRecovery(dto)
+	}
+
+	@UsePipes(new ValidationPipe())
+	@HttpCode(200)
+	@Post('password-reset')
+	async passwordReset(@Body() dto: PasswordResetDto) {
+		return this.authService.passwordReset(dto)
 	}
 
 	@HttpCode(200)

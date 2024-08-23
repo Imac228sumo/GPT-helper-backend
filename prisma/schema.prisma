@@ -7,90 +7,217 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//бесплатный - 2 генерации в день (200 токенов)
-//стандартная - 25 генераций + бесплатный тариф (500 токенов)
-//уникальный - 1000 генераций для 1 инструмента
-//безлимит - неограниченно
-
 model User {
-  id       Int     @id @default(autoincrement())
-  email    String  @unique
-  name     String?
-  password String
-  isAdmin  Boolean @default(false)
+  id        Int     @id @default(autoincrement())
+  email     String  @unique
+  name      String?
+  shortName String? @map("short_name")
+  password  String
+  role      Role    @default(USER)
 
-  freeSubscription     FreeSubscription?
-  standardSubscription StandardSubscription?
-  yandexChats          YandexChat[]
-  openAiChats          OpenAiChat[]
-  countChats           Int                   @default(0)
+  subscriptions Subscription[]
+  openAiChats   OpenAiChat[]
+  countChats    Int            @default(0) @map("count_chats")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  transactions Transaction[]
+
+  referralCode  String?    @unique
+  referralCount Int        @default(0)
+  referrals     Referral[] @relation("referred_by_user")
+  referral      Referral?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 }
 
-model FreeSubscription {
-  id Int @id @default(autoincrement())
-
-  user   User @relation(fields: [userId], references: [id])
-  userId Int  @unique
-
-  isActive       Boolean  @default(true)
-  expirationDate DateTime
-  balance        Int      @default(2)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum Role {
+  USER
+  ADMIN
 }
 
-model StandardSubscription {
-  id Int @id @default(autoincrement())
+model Referral {
+  id               Int  @id @default(autoincrement())
+  referredByUser   User @relation("referred_by_user", fields: [referredByUserId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  referredByUserId Int  @map("referred_by_user_id")
 
-  user   User @relation(fields: [userId], references: [id])
-  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId Int  @unique @map("user_id")
 
-  isActive       Boolean  @default(false)
-  expirationDate DateTime
-  balance        Int      @default(25)
+  countPaid       Int @default(0)
+  countProcessing Int @default(0)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 }
 
-model YandexChat {
-  id       Int             @id @default(autoincrement())
-  messages yandexMessage[]
-
-  user   User @relation(fields: [userId], references: [id])
-  userId Int
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model yandexMessage {
+// standard_minimum = 25 standard_medium = 50 standard_maximum = 100
+// unlimited_all unlimited_gpt-3.5-turbo unlimited_gpt-4.5-turbo
+model Subscription {
   id   Int    @id @default(autoincrement())
-  role String
-  text String
+  type String
+  name String
 
-  chat   YandexChat @relation(fields: [chatId], references: [id])
-  chatId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId Int  @map("user_id")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  plan   Plan @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  planId Int  @map("plan_id")
+
+  isAutoRenewal  Boolean  @default(true) @map("is_auto_renewal")
+  expirationDate DateTime @map("expiration_date")
+
+  balance Int @default(0)
+  total   Int @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, planId], name: "userId_planId")
+}
+
+model Plan {
+  id Int @id @default(autoincrement())
+
+  type             String //free standard universal unlimited
+  name             String
+  balance          Int
+  price            Int
+  quantityOfMonths Int                   @default(1) @map("quantity_of_months")
+  tools            PlanONTool[]
+  optionsForPlan   PlanONOptionForPlan[]
+  subscriptions    Subscription[]
+  isUnlimited      Boolean               @default(false)
+
+  typeOfPlans   TypeOfPlans? @relation(fields: [typeOfPlansId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  typeOfPlansId Int?         @map("type_of_plans_id")
+
+  referred              Boolean @default(false)
+  discount              Int
+  additionalGenerations Int     @map("additional_generations")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+}
+
+model OptionForPlan {
+  id Int @id @default(autoincrement())
+
+  type         String
+  title        String
+  price        String
+  color        String
+  descriptions String
+  information  String
+  subOptions   String[]
+
+  plans     PlanONOptionForPlan[]
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+}
+
+model PlanONOptionForPlan {
+  planId          Int
+  optionForPlanId Int
+
+  plan          Plan          @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  optionForPlan OptionForPlan @relation(fields: [optionForPlanId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([planId, optionForPlanId])
+  @@map("option_for_plan")
+}
+
+model Tool {
+  id Int @id @default(autoincrement())
+
+  plans PlanONTool[]
+
+  title             String
+  subTitleToolsItem String
+  subTitleChatsItem String
+  model             String
+  about             String
+  subAbout          String
+  description       String
+  link              String
+  iconSmall         String
+  iconMedium        String
+  iconBig           String
+  iconSquare        String
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+}
+
+model PlanONTool {
+  planId Int
+  toolId Int
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tool Tool @relation(fields: [toolId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([planId, toolId])
+  @@map("plan_on_tool")
+}
+
+model TypeOfPlans {
+  id Int @id @default(autoincrement())
+
+  type                  String
+  title                 String
+  price                 String
+  description           String                              @default("")
+  color                 String
+  optionsForTypeOfPlans TypeOfPlansONOptionForTypeOfPlans[]
+  plans                 Plan[]
+  isSelect              Boolean
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("type_of_plans")
+}
+
+model OptionForTypeOfPlans {
+  id Int @id @default(autoincrement())
+
+  type     String
+  title    String
+  isActive Boolean
+
+  typeOfPlans TypeOfPlansONOptionForTypeOfPlans[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("option_for_type_of_plans")
+}
+
+model TypeOfPlansONOptionForTypeOfPlans {
+  typeOfPlansId          Int
+  optionForTypeOfPlansId Int
+
+  typeOfPlans          TypeOfPlans          @relation(fields: [typeOfPlansId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  optionForTypeOfPlans OptionForTypeOfPlans @relation(fields: [optionForTypeOfPlansId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([typeOfPlansId, optionForTypeOfPlansId])
+  @@map("type_of_plans_on_option_for_type_of_plans")
 }
 
 model OpenAiChat {
   id              Int             @id @default(autoincrement())
   name            String
-  timeLastRequest DateTime?
+  aiName          String          @map("ai_name")
+  modelName       String          @map("model_name")
+  timeLastRequest DateTime?       @map("time_last_request")
   messages        OpenAiMessage[]
 
-  user   User @relation(fields: [userId], references: [id])
-  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId Int  @map("user_id")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("open_ai_chat")
 }
 
 model OpenAiMessage {
@@ -98,62 +225,68 @@ model OpenAiMessage {
   role    String
   content String
 
-  chat   OpenAiChat @relation(fields: [chatId], references: [id])
-  chatId Int
+  chat   OpenAiChat @relation(fields: [chatId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  chatId Int        @map("chat_id")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-model YandexAPI {
-  id       Int    @id @default(autoincrement())
-  name     String @unique
-  url      String
-  apiKey   String
-  modelUri String
-
-  completionOptions CompletionOptions?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model CompletionOptions {
-  id          Int     @id @default(autoincrement())
-  stream      Boolean
-  temperature Float
-  maxTokens   String
-
-  yandexApi   YandexAPI @relation(fields: [yandexApiId], references: [id])
-  yandexApiId Int       @unique
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@map("open_ai_message")
 }
 
 model OpenAiAPI {
   id           Int    @id @default(autoincrement())
   name         String @unique
   model        String
-  apiKey       String
-  httpProxyUrl String
+  apiKey       String @map("api_key")
+  httpProxyUrl String @map("http_proxy_url")
 
   completionOptionsOpenAi CompletionOptionsOpenAi?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("open_ai_api")
 }
 
 model CompletionOptionsOpenAi {
   id              Int     @id @default(autoincrement())
   stream          Boolean
   temperature     Float
-  maxTokensInput  Int     @default(0)
-  maxTokensOutput Int     @default(0)
+  maxTokensInput  Int     @default(0) @map("max_tokens_input")
+  maxTokensOutput Int     @default(0) @map("max_tokens_output")
 
-  openAiAPI   OpenAiAPI @relation(fields: [openAiApiId], references: [id])
-  openAiApiId Int       @unique
+  openAiAPI   OpenAiAPI @relation(fields: [openAiApiId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  openAiApiId Int       @unique @map("open_ai_api_id")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("completion_options_open_ai")
+}
+
+model Transaction {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  paymentId     String  @unique @map("payment_id")
+  paymentMethod String? @map("payment_method")
+
+  months Int
+  amount String
+  planId Int    @map("plan_id")
+
+  status TransactionStatus
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId Int  @map("user_id")
+}
+
+enum TransactionStatus {
+  pending
+  waiting_for_capture
+  succeeded
+  canceled
+  refunded
 }

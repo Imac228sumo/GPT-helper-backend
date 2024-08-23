@@ -8,10 +8,12 @@ import { isNumber } from 'class-validator'
 import { Response } from 'express'
 import { ChatCompletion, ChatCompletionMessageParam } from 'openai/resources'
 import { OpenaiMessageService } from 'src/openai-message/openai-message.service'
+import { IOpenAiMessagesQuery } from 'src/openai-message/types'
 import { OpenaiService } from 'src/openai/openai.service'
 import { PrismaService } from 'src/prisma.service'
 import { SubscriptionsService } from 'src/subscriptions/subscriptions.service'
-import { IUser } from 'src/user/user.interface'
+import { errors } from 'src/utils/errors'
+import { CreateChatDto } from './dto/create-chat.dto'
 import {
 	SendMessageDto,
 	SetNameDto,
@@ -52,7 +54,7 @@ export class OpenaiChatService {
 	}
 
 	// Authorized section
-	async createChat(userId: number) {
+	async createChat(userId: number, dto: CreateChatDto) {
 		const user = await this.prisma.user.findUnique({
 			where: {
 				id: userId,
@@ -60,15 +62,7 @@ export class OpenaiChatService {
 		})
 		if (!user) throw new NotFoundException('User not found')
 
-		const countChats = await this.prisma.openAiChat.count({
-			where: {
-				userId: userId,
-			},
-		})
-
-		// if (countChats > 5)
-		// 	throw new ForbiddenException('The chat limit has been exceeded')
-
+		const timeLastRequest = new Date()
 		const chat = await this.prisma.openAiChat.create({
 			data: {
 				user: {
@@ -76,19 +70,15 @@ export class OpenaiChatService {
 						id: user.id,
 					},
 				},
-				name: `Chat № ${countChats + 1}`,
+				name: dto.name,
+				aiName: dto.aiName,
+				modelName: dto.modelName,
+				timeLastRequest: timeLastRequest,
 			},
 		})
 
-		const modifiedDto = {
-			chatId: chat.id,
-			role: 'system',
-			content: 'Ты ассистент',
-		}
-
-		await this.openaiMessageService.createMessage(modifiedDto)
-
-		if (!chat) throw new InternalServerErrorException('failed to create a chat')
+		if (!chat)
+			throw new InternalServerErrorException("Unable to create chat's data")
 
 		return chat
 	}
@@ -125,12 +115,74 @@ export class OpenaiChatService {
 
 		if (query.page && query.limit) {
 			if (
-				!(isNumber(+query.page) && +query.page >= 0) ||
+				!(isNumber(+query.page) && +query.page > 0) ||
+				!(isNumber(+query.limit) && +query.limit >= 0)
+			)
+				throw new BadRequestException('Invalid format query params')
+
+			if (query.recent === 'true') {
+				const skip = (+query.page - 1) * +query.limit
+				const chats = await this.prisma.openAiChat.findMany({
+					orderBy: {
+						timeLastRequest: {
+							sort: 'desc',
+						},
+					},
+					include: {
+						messages: false,
+					},
+					skip,
+					take: +query.limit,
+				})
+
+				return chats
+			} else {
+				const skip = (+query.page - 1) * +query.limit
+				const chats = await this.prisma.openAiChat.findMany({
+					orderBy: {
+						id: 'desc',
+					},
+					include: {
+						messages: false,
+					},
+					skip,
+					take: +query.limit,
+				})
+
+				return chats
+			}
+		} else {
+			const chats = await this.prisma.openAiChat.findMany({
+				orderBy: {
+					id: 'desc',
+				},
+				include: {
+					messages: false,
+				},
+			})
+			return chats
+		}
+	}
+
+	async getAllRecentChats(userId: number, query: IOpenAiChatsQuery) {
+		const user = await this.prisma.user.findUnique({
+			where: {
+				id: userId,
+			},
+		})
+		if (!user) throw new NotFoundException('User not found')
+
+		if (query.page && query.limit) {
+			if (
+				!(isNumber(+query.page) && +query.page > 0) ||
 				!(isNumber(+query.limit) && +query.limit >= 0)
 			)
 				throw new BadRequestException('Invalid format query params')
 			const skip = (+query.page - 1) * +query.limit
 			const chats = await this.prisma.openAiChat.findMany({
+				orderBy: {
+					timeLastRequest: 'desc',
+				},
 				include: {
 					messages: false,
 				},
@@ -141,12 +193,35 @@ export class OpenaiChatService {
 			return chats
 		} else {
 			const chats = await this.prisma.openAiChat.findMany({
+				orderBy: {
+					timeLastRequest: 'desc',
+				},
 				include: {
 					messages: false,
 				},
 			})
 			return chats
 		}
+	}
+
+	async getAllMessages(
+		userId: number,
+		chatId: number,
+		query: IOpenAiMessagesQuery
+	) {
+		const user = await this.prisma.user.findUnique({
+			where: {
+				id: userId,
+			},
+		})
+		if (!user) throw new NotFoundException('User not found')
+
+		const messages = this.openaiMessageService.getAllMessagesQuery(
+			chatId,
+			query
+		)
+
+		return messages
 	}
 
 	async setName(userId: number, { name, chatId }: SetNameDto) {
@@ -169,6 +244,10 @@ export class OpenaiChatService {
 			},
 		})
 
+		if (!chat) {
+			throw new InternalServerErrorException("Unable to update chat's data")
+		}
+
 		return chat
 	}
 
@@ -180,7 +259,7 @@ export class OpenaiChatService {
 		})
 		if (!user) throw new NotFoundException('User not found')
 
-		const message = this.openaiMessageService.findLastMessage(chatId, userId)
+		const message = this.openaiMessageService.findLastMessage(chatId)
 
 		if (!message) throw new NotFoundException('Message not found')
 
@@ -188,21 +267,15 @@ export class OpenaiChatService {
 	}
 
 	async updateChat(id: number, dto: UpdateChatDto) {
-		const user = await this.prisma.user.findUnique({
-			where: {
-				id: dto.userId,
-			},
-		})
-
-		if (!user) throw new NotFoundException('User not found')
-
 		const modifiedDto = {
 			chatId: id,
 			role: dto.role,
 			content: dto.content,
 		}
 
-		await this.openaiMessageService.createMessage(modifiedDto)
+		const message = await this.openaiMessageService.createMessage(modifiedDto)
+		if (!message)
+			throw new InternalServerErrorException("Unable to create message's data")
 
 		const timeLastRequest = new Date()
 		const chat = await this.prisma.openAiChat.update({
@@ -212,33 +285,35 @@ export class OpenaiChatService {
 			data: {
 				timeLastRequest: timeLastRequest,
 			},
-			include: {
-				messages: {
-					orderBy: {
-						createdAt: 'asc',
-					},
-				},
-			},
 		})
-		return chat
+
+		if (!chat)
+			throw new InternalServerErrorException("Unable to update chat's data")
 	}
 
 	async updateChatStream(id: number, dto: UpdateChatDto) {
-		const user = await this.prisma.user.findUnique({
-			where: {
-				id: dto.userId,
-			},
-		})
-
-		if (!user) throw new NotFoundException('User not found')
-
 		const modifiedDto = {
 			chatId: id,
 			role: dto.role,
 			content: dto.content,
 		}
 
-		await this.openaiMessageService.createMessage(modifiedDto)
+		const message = await this.openaiMessageService.createMessage(modifiedDto)
+		if (!message)
+			throw new InternalServerErrorException("Unable to create message's data")
+
+		const timeLastRequest = new Date()
+		const chat = await this.prisma.openAiChat.update({
+			where: {
+				id: id,
+			},
+			data: {
+				timeLastRequest: timeLastRequest,
+			},
+		})
+
+		if (!chat)
+			throw new InternalServerErrorException("Unable to update chat's data")
 	}
 
 	async sendMessage(chatId: number, userId: number, dto: SendMessageDto) {
@@ -265,10 +340,7 @@ export class OpenaiChatService {
 		}
 		await this.openaiMessageService.createMessage(createMessageDto)
 
-		const messages = await this.openaiMessageService.findAllMessages(
-			chatId,
-			userId
-		)
+		const messages = await this.openaiMessageService.getAllMessages(chatId)
 
 		const response: ChatCompletion = (await this.openaiService.generateResponse(
 			{ messages }
@@ -290,22 +362,27 @@ export class OpenaiChatService {
 		dto: SendMessageDto,
 		res: Response
 	) {
-		await this.subscriptionsService.checkFreeSubscription(userId)
-		await this.subscriptionsService.checkStandardSubscription(userId)
+		const toolName = 'gpt-3.5-turbo'
 
 		const user = await this.prisma.user.findUnique({
 			where: {
 				id: userId,
 			},
 			include: {
-				freeSubscription: true,
-				standardSubscription: true,
+				subscriptions: true,
 			},
 		})
 
-		if (!user) throw new NotFoundException('User not found')
+		if (!user) {
+			res.setHeader('Content-Type', 'text/plain')
+			res.write(errors.UserNotFound)
+			return
+		}
 
-		const nameSubscription = await this.calculateNameSubscription(user)
+		const isPossible = await this.subscriptionsService.isPermissionMakeRequest(
+			userId,
+			toolName
+		)
 
 		const chat = await this.prisma.openAiChat.findUnique({
 			where: {
@@ -313,42 +390,153 @@ export class OpenaiChatService {
 			},
 		})
 
-		if (!chat) throw new NotFoundException('Chat not found')
+		if (!chat) {
+			res.setHeader('Content-Type', 'text/plain')
+			res.write(errors.ChatNotFound)
+			return
+		}
 
 		const createMessageDto = {
 			chatId: chatId,
 			role: 'user',
 			content: dto.message,
 		}
-		await this.openaiMessageService.createMessage(createMessageDto)
+		const message =
+			await this.openaiMessageService.createMessage(createMessageDto)
+		if (!message) {
+			res.setHeader('Content-Type', 'text/plain')
+			res.write(errors.UnableCreateMessage)
+			return
+		}
 
-		const messages = await this.openaiMessageService.findAllMessages(
-			chatId,
-			userId
-		)
+		createMessageDto
+		if (typeof isPossible === 'string') {
+			res.setHeader('Content-Type', 'text/plain')
+			res.write(isPossible)
+			const updateChatDtoAi = {
+				userId: userId,
+				content: isPossible,
+				role: 'assistant',
+			}
+			await this.updateChatStream(chatId, updateChatDtoAi)
+			return isPossible
+		}
+
+		const messages = await this.openaiMessageService.getAllMessages(chatId)
 
 		let resultResponse = ''
 		const stream = await this.openaiService.generateResponseStream(
 			{ messages },
-			nameSubscription
+			isPossible.nameSubscription
 		)
 		res.setHeader('Content-Type', 'text/plain')
-
-		for await (const chunk of stream) {
-			//process.stdout.write(chunk.choices[0]?.delta?.content || '')
-			res.write(chunk.choices[0]?.delta?.content || '')
-			resultResponse += chunk.choices[0]?.delta?.content || ''
+		if (typeof stream === 'string') {
+			res.write(stream)
+			resultResponse = stream
+		} else {
+			for await (const chunk of stream) {
+				// process.stdout.write(chunk.choices[0]?.delta?.content || '')
+				res.write(chunk.choices[0]?.delta?.content || '')
+				resultResponse += chunk.choices[0]?.delta?.content || ''
+			}
+			if (!isPossible.isUnlimited) {
+				await this.subscriptionsService.decrementSubscriptionBalance(
+					isPossible.subscriptionsId
+				)
+			}
 		}
 		res.end()
 
-		await this.decrementSubscriptionBalance(userId, nameSubscription)
-		// console.log(resultResponse)
 		const updateChatDtoAi = {
 			userId: userId,
 			content: resultResponse,
 			role: 'assistant',
 		}
+		await this.updateChatStream(chatId, updateChatDtoAi)
+	}
 
+	async regenerateMessageStream(
+		chatId: number,
+		userId: number,
+		dto: SendMessageDto,
+		res: Response
+	) {
+		const toolName = 'gpt-3.5-turbo'
+
+		const user = await this.prisma.user.findUnique({
+			where: {
+				id: userId,
+			},
+			include: {
+				subscriptions: true,
+			},
+		})
+		if (!user)
+			if (!user) {
+				res.setHeader('Content-Type', 'text/plain')
+				res.write(errors.UserNotFound)
+				return
+			}
+
+		const isPossible = await this.subscriptionsService.isPermissionMakeRequest(
+			userId,
+			toolName
+		)
+		if (typeof isPossible === 'string') {
+			res.setHeader('Content-Type', 'text/plain')
+			res.write(isPossible)
+			const updateChatDtoAi = {
+				userId: userId,
+				content: isPossible,
+				role: 'assistant',
+			}
+			await this.openaiMessageService.deleteLastMessage(chatId)
+			await this.updateChatStream(chatId, updateChatDtoAi)
+			return
+		}
+
+		const chat = await this.prisma.openAiChat.findUnique({
+			where: {
+				id: chatId,
+			},
+		})
+		if (!chat)
+			if (!chat) {
+				res.setHeader('Content-Type', 'text/plain')
+				res.write(errors.ChatNotFound)
+				return
+			}
+
+		await this.openaiMessageService.deleteLastMessage(chatId)
+		const messages = await this.openaiMessageService.getAllMessages(chatId)
+		let resultResponse = ''
+		const stream = await this.openaiService.generateResponseStream(
+			{ messages },
+			isPossible.nameSubscription
+		)
+		res.setHeader('Content-Type', 'text/plain')
+		if (typeof stream === 'string') {
+			res.write(stream)
+			resultResponse = stream
+		} else {
+			for await (const chunk of stream) {
+				// process.stdout.write(chunk.choices[0]?.delta?.content || '')
+				res.write(chunk.choices[0]?.delta?.content || '')
+				resultResponse += chunk.choices[0]?.delta?.content || ''
+			}
+			if (!isPossible.isUnlimited) {
+				await this.subscriptionsService.decrementSubscriptionBalance(
+					isPossible.subscriptionsId
+				)
+			}
+		}
+		res.end()
+
+		const updateChatDtoAi = {
+			userId: userId,
+			content: resultResponse,
+			role: 'assistant',
+		}
 		await this.updateChatStream(chatId, updateChatDtoAi)
 	}
 
@@ -361,61 +549,15 @@ export class OpenaiChatService {
 
 		if (!user) throw new NotFoundException('User not found')
 
-		await this.openaiMessageService.deleteAllMessages(chatId, userId)
-
 		const chat = await this.prisma.openAiChat.delete({
 			where: {
 				id: chatId,
 			},
 		})
 
+		if (!chat)
+			throw new InternalServerErrorException("Unable to delete chat's data")
+
 		return chat
-	}
-
-	private async decrementSubscriptionBalance(
-		userId: number,
-		nameSubscription: string
-	) {
-		if (nameSubscription === 'standard') {
-			await this.prisma.standardSubscription.update({
-				where: {
-					userId: userId,
-				},
-				data: {
-					balance: {
-						decrement: 1,
-					},
-				},
-			})
-		} else if (nameSubscription === 'free') {
-			await this.prisma.freeSubscription.update({
-				where: {
-					userId: userId,
-				},
-				data: {
-					balance: {
-						decrement: 1,
-					},
-				},
-			})
-		}
-	}
-
-	private async calculateNameSubscription(user: IUser) {
-		if (
-			user.standardSubscription &&
-			user.standardSubscription.isActive &&
-			user.standardSubscription.balance > 0
-		) {
-			return 'standard'
-		} else if (
-			user.freeSubscription &&
-			user.freeSubscription.isActive &&
-			user.freeSubscription.balance > 0
-		) {
-			return 'free'
-		} else {
-			return 'none'
-		}
 	}
 }
